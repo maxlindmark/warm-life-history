@@ -2,7 +2,7 @@
 # 2020.09.02: Malin Karlsson & Max Lindmark
 #
 # Read in catch data, clean, filter and process. FM data, unlike the BT data, 
-# comes in three data files which correspond to the tabs in the spreadsheet:
+# comes in data files which correspond to the tabs in the spreadsheet:
 # FM09_alla_grundutrdag_combinedbyAG_190916
 # They all have different layout so I will clean them separately...
 #
@@ -18,7 +18,7 @@
 # 
 # The data contains two different length group standards std 2 (2.5 cm intervals) and
 # std 3 (1 cm intervals). I need to rewrite std 3 to std 2 to get comparable data. 
-# See the instruction manual for how they are defined ("Standardisering av l?ngdgrupper")
+# See the instruction manual for how they are defined ("Standardisering av längdgrupper")
 # 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -47,11 +47,11 @@ df83 <- read.csv("data/raw/Catch_data_FM09__1983-86_190916.csv", sep = ";", file
 
 # Tidy data. Remove unnecessary columns
 df83 <- df83 %>%
-  filter(Art == "ABBO", ?rtal < 2004) %>%
-  rename(year = ?rtal, week = Vecka, day = Dag, effort = Anstr?ngning, species = Art,
+  filter(Art == "ABBO", Årtal < 2004) %>%
+  rename(year = Årtal, week = Vecka, day = Dag, effort = Ansträngning, species = Art,
          weight = Vikt, n = Antal) %>%
-  select(-c(Vtn.st?nd, VindRiktn.I, VindSt.I, Vind_upp_rikn, VindSt.Upp, Str?m_I_rikn,
-            Str?m_upp_rikn, Salthalt_I_yta, Salthalt_I_botten, Salthalt_upp_yta, 
+  select(-c(Vtn.stånd, VindRiktn.I, VindSt.I, Vind_upp_rikn, VindSt.Upp, Ström_I_rikn,
+            Ström_upp_rikn, Salthalt_I_yta, Salthalt_I_botten, Salthalt_upp_yta, 
             Salthalt_upp_botten, Drift_i, Drift_u, Drift_dim, Siktdjup, Lufttryck_i,
             Lufttryck_upp, Sjuk_kontroll, X..))
 
@@ -63,8 +63,8 @@ head(dat83) # Now the data is in a long, tidy format.
 head(df83)
 
 # Test it is correct:
-subset(df83, year == 1983 & week == 30 & day == 2 & Stations_namn == "Asph?llan")
-subset(dat83, year == 1983 & week == 30 & day == 2 & Stations_namn == "Asph?llan")
+subset(df83, year == 1983 & week == 30 & day == 2 & Stations_namn == "Asphällan")
+subset(dat83, year == 1983 & week == 30 & day == 2 & Stations_namn == "Asphällan")
 
 # Create a new empty column for numeric "length"
 dat83$length_group <- as.numeric(substring(dat83$length, 2))
@@ -85,11 +85,11 @@ df87 <- read.csv("data/raw/Catch_data_FM09__1987-90_190916.csv", sep = ";", file
 
 # Tidy data. Remove unnecessary columns
 df87 <- df87 %>%
-  filter(Art == "ABBO", ?rtal < 2004) %>%
-  rename(year = ?rtal, week = Vecka, day = Dag, effort = Anstr?ngning, species = Art,
+  filter(Art == "ABBO", Årtal < 2004) %>%
+  rename(year = Årtal, week = Vecka, day = Dag, effort = Ansträngning, species = Art,
          weight = Vikt, n = Antal) %>%
-  select(-c(Vtn.st?nd, VindRiktn.I, VindSt.I, Vind_upp_rikn, VindSt.Upp, Str?m_I_rikn,
-            Str?m_upp_rikn, Salthalt_I_yta, Salthalt_I_botten, Salthalt_upp_yta, 
+  select(-c(Vtn.stånd, VindRiktn.I, VindSt.I, Vind_upp_rikn, VindSt.Upp, Ström_I_rikn,
+            Ström_upp_rikn, Salthalt_I_yta, Salthalt_I_botten, Salthalt_upp_yta, 
             Salthalt_upp_botten, Drift_i, Drift_u, Drift_dim, Siktdjup, Lufttryck_i,
             Lufttryck_upp, Sjuk_kontroll, X..))
 
@@ -101,8 +101,8 @@ dat87 <- df87 %>%
                        X41, X44, X46, X49, X51, X56, X59, X61, X64, X71), na.rm = T)
 
 # Test it is correct:
-subset(df87, year == 1987 & week == 32 & day == 2 & Stations_namn == "Asph?llan")
-subset(dat87, year == 1987 & week == 32 & day == 2 & Stations_namn == "Asph?llan")
+subset(df87, year == 1987 & week == 32 & day == 2 & Stations_namn == "Asphällan")
+subset(dat87, year == 1987 & week == 32 & day == 2 & Stations_namn == "Asphällan")
 
 # Create a new empty column for numeric "length"
 dat87$length_group <- as.numeric(substring(dat87$length, 2))
@@ -121,11 +121,11 @@ df91 <- read.csv("data/raw/Catch_data_FM09__1991-00_190916.csv", sep = ";", file
 
 # Tidy data. Remove unnecessary columns
 df91 <- df91 %>%
-  filter(Art == "ABBO", ?rtal < 2004) %>%
-  rename(year = ?rtal, week = Vecka, day = Dag, effort = Anstr?ngning, species = Art,
+  filter(Art == "ABBO", Årtal < 2004) %>%
+  rename(year = Årtal, week = Vecka, day = Dag, effort = Ansträngning, species = Art,
          weight = Vikt, n = Antal) %>%
-  select(-c(Vtn.st?nd, VindRiktn.I, VindSt.I, Vind_upp_rikn, VindSt.Upp, Str?m_I_rikn,
-            Str?m_upp_rikn, Salthalt_I_yta, Salthalt_I_botten, Salthalt_upp_yta, 
+  select(-c(Vtn.stånd, VindRiktn.I, VindSt.I, Vind_upp_rikn, VindSt.Upp, Ström_I_rikn,
+            Ström_upp_rikn, Salthalt_I_yta, Salthalt_I_botten, Salthalt_upp_yta, 
             Salthalt_upp_botten, Drift_i, Drift_u, Drift_dim, Siktdjup, Lufttryck_i,
             Lufttryck_upp, Sjuk_kontroll))
 
@@ -135,8 +135,8 @@ dat91 <- df91 %>%
                        X46, X49, X51, X54, X56,X59, X61, X66, X69, X71, X76, X81, X101), na.rm = T)
 
 # Test it is correct:
-subset(df91, year == 1992 & week == 32 & day == 2 & Stations_namn == "Asph?llan")
-subset(dat91, year == 1992 & week == 32 & day == 2 & Stations_namn == "Asph?llan")
+subset(df91, year == 1992 & week == 32 & day == 2 & Stations_namn == "Asphällan")
+subset(dat91, year == 1992 & week == 32 & day == 2 & Stations_namn == "Asphällan")
 
 # Create a new empty column for numeric "length"
 dat91$length_group <- as.numeric(substring(dat91$length, 2))
@@ -155,13 +155,14 @@ df01 <- read.csv("data/raw/Catch_data_FM09__2001-06_190916.csv", sep = ";", file
 
 # Tidy data. Remove unnecessary columns
 df01 <- df01 %>%
-  filter(Art == "ABBO", ?rtal < 2004) %>%
-  rename(year = ?rtal, week = Vecka, day = Dag, effort = Anstr?ngning, species = Art,
+  filter(Art == "ABBO", Årtal < 2004) %>%
+  rename(year = Årtal, week = Vecka, day = Dag, effort = Ansträngning, species = Art,
          weight = Vikt, n = Antal) %>%
-  select(-c(Vtn.st?nd, VindRiktn.I, VindSt.I, Vind_upp_rikn, VindSt.Upp, Str?m_I_rikn,
-            Str?m_upp_rikn, Salthalt_I_yta, Salthalt_I_botten, Salthalt_upp_yta, 
+  select(-c(Vtn.stånd, VindRiktn.I, VindSt.I, Vind_upp_rikn, VindSt.Upp, Ström_I_rikn,
+            Ström_upp_rikn, Salthalt_I_yta, Salthalt_I_botten, Salthalt_upp_yta, 
             Salthalt_upp_botten, Drift_i, Drift_u, Drift_dim, Siktdjup, Lufttryck_i,
             Lufttryck_upp, Sjuk_kontroll, X..))
+
 
 # Go from wide to long format
 dat01 <- df01 %>%
@@ -170,8 +171,8 @@ dat01 <- df01 %>%
                        X44, X45, X46, X47, X48, X49, X50, X51, X52, X55, X62, X65, X80, X83, X90), na.rm = T)
 
 # Test it is correct:
-subset(df01, year == 2002 & week == 32 & day == 2 & Stations_namn == "Asph?llan")
-subset(dat01, year == 2002 & week == 32 & day == 2 & Stations_namn == "Asph?llan")
+subset(df01, year == 2002 & week == 32 & day == 2 & Stations_namn == "Asphällan")
+subset(dat01, year == 2002 & week == 32 & day == 2 & Stations_namn == "Asphällan")
 
 # Create a new empty column for numeric "length"
 dat01$length_group <- as.numeric(substring(dat01$length, 2))
@@ -191,7 +192,7 @@ catch_FM <- catch_FM %>% filter(year > 1982 & year < 2004)
 
 #** Apply further filters ============================================================
 # Remove disturbance
-catch_FM <- catch_FM %>% filter(St?rning == 0)
+catch_FM <- catch_FM %>% filter(Störning == 0)
 
 # They put nets many days in a row to get an overfishing affect.
 # Catches decline after a few days. I don?t want this effect!
@@ -360,11 +361,11 @@ df <- read.csv("data/raw/Catch_data_BT09_140507.csv", sep = ";", fileEncoding = 
 
 # Tidy data. Remove unnecessary columns
 df <- df %>%
-  filter(Art == "ABBO", ?rtal < 2004) %>%
-  dplyr::rename(year = ?rtal, week = Vecka, day = Dag, effort = Anstr?ngning,
+  filter(Art == "ABBO", Årtal < 2004) %>%
+  dplyr::rename(year = Årtal, week = Vecka, day = Dag, effort = Ansträngning,
                 species = Art, weight = Vikt, n = Antal) %>%
-  select(-c(Vtn.st?nd,  VindRiktn.I, VindSt.I, Vind_upp_rikn, VindSt.Upp, Str?m_I_rikn,
-            Str?m_upp_rikn, Salthalt_I_yta, Salthalt_I_botten, Salthalt_upp_yta,
+  select(-c(Vtn.stånd,  VindRiktn.I, VindSt.I, Vind_upp_rikn, VindSt.Upp, Ström_I_rikn,
+            Ström_upp_rikn, Salthalt_I_yta, Salthalt_I_botten, Salthalt_upp_yta,
             Salthalt_upp_botten, Drift_i, Drift_u, Drift_dim, Siktdjup, Lufttryck_i,
             Lufttryck_upp, Sjuk_kontroll))
 
@@ -419,12 +420,12 @@ head(subset(dat, n2 == 3), 50)
 
 # Plot disturbance
 dat %>% 
-  filter(St?rning > 1) %>% 
-  ggplot(., aes(x = St?rning)) +
+  filter(Störning > 1) %>% 
+  ggplot(., aes(x = Störning)) +
   geom_histogram(bins = 10) +
   scale_x_continuous(breaks = c(2, 3, 4, 9))
 
-dat <- dat %>% filter(St?rning == 0)
+dat <- dat %>% filter(Störning == 0)
 
 # Overfishing effect:
 # They put nets many days in a row to get an overfishing affect.
@@ -624,12 +625,12 @@ catch_BT <- dat_oct
 # Clean data to make more readable
 catch_BT <- catch_BT %>%
   select(Area, Sektion, Station, year, week, day, length_group, Station,
-         L?ngdgr_std, length_group) %>% 
+         Längdgr_std, length_group) %>% 
   as.data.frame()
 
 catch_FM <- catch_FM %>%
   select(Area, Sektion, Station, year, week, day, length_group, Station,
-         L?ngdgr_std, length_group) %>% 
+         Längdgr_std, length_group) %>% 
   as.data.frame()
 
 catch <- rbind(catch_BT, catch_FM)
@@ -637,10 +638,10 @@ catch <- rbind(catch_BT, catch_FM)
 # First split up the data i two separate dataframes, one with std 2 and one with std 3.
 # Call them dat_std2 och dat_std3
 dat_std2 <- catch %>%
-  filter(L?ngdgr_std == 2)
+  filter(Längdgr_std == 2)
 
 dat_std3 <- catch %>%
-  filter(L?ngdgr_std == 3)
+  filter(Längdgr_std == 3)
 
 # Convert std 3 to std 2
 sort(unique(dat_std3$length_group))
