@@ -35,7 +35,7 @@ options(mc.cores = parallel::detectCores())
 # B. READ DATA =====================================================================
 # df <- read.csv("data/Growth_data_BT_FM_1970-2004.csv", sep = ";") # This is the 
 # original data from Huss et al (2019)
-df <- read.csv("data/catch_FM_BT_1987-2003.csv")
+df <- read.csv("data/catch_BT_FM_1987-2003.csv")
 
 # How many nets in total? (For scaling with effort later)
 df %>%
