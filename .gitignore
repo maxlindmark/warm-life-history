@@ -41,3 +41,7 @@ vignettes/*.pdf
 # Large model objects
 /output/
 
+# Raw data
+/data/raw/
+
+
