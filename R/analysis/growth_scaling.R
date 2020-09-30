@@ -39,13 +39,16 @@ options(mc.cores = parallel::detectCores())
 
 
 # B. READ DATA =====================================================================
-# Rearrange and calculate specific growth ==========================================
+#** Rearrange and calculate specific growth ========================================
 # df <- read.csv("data/Growth_data_BT_FM_1970-2004.csv", sep = ";") # This is the 
 # original data from Huss et al (2019)
 df <- read.csv("data/size_at_age_BT_FM_1970-2004.csv", sep = ";")
 
 # Check out how many ("length") unique ID observations there are
 length(unique(df$ID)) 
+
+# Remove gear 32, see vbge script
+df <- df %>% filter(!gear == 32)
 
 # I need to make the ID completely unique (since I should include ID information in my
 # mixed model), otherwise they may have the same ID in different areas.
@@ -153,7 +156,7 @@ dfm <- df_all %>%
   mutate(log_length_sq = log_length*log_length)
 
 
-# Plot data ========================================================================
+#** Plot data ======================================================================
 # Plot distribution of catch years
 dfm %>% 
   group_by(catch_age, catch_year, area) %>% 
@@ -231,19 +234,6 @@ dfm %>%
   guides(color = FALSE) +
   NULL
 
-summary(dfm)
-
-dfm_test <- dfm %>% filter(birth_year > 1992)
-
-dfm_test %>% 
-  ggplot(., aes(x = log_length, y = log_growth, color = ID)) +
-  facet_grid(birth_year ~ area) +
-  geom_point(size = 1, alpha = 0.2) +
-  geom_line(size = 1, alpha = 0.2) +
-  scale_color_viridis(discrete = T, direction = -1) + 
-  guides(color = FALSE) +
-  NULL
-
 
 # C. FIT MODELS ====================================================================
 # I'm following the multilevel model vignette here: https://cran.r-project.org/web/packages/brms/index.html
@@ -251,9 +241,8 @@ dfm_test %>%
 # https://stats.stackexchange.com/questions/400700/why-do-we-do-crossed-vs-nested-vs-other-random-effects
 # https://stackoverflow.com/questions/29717308/how-do-i-code-the-individual-in-to-an-lme4-nested-model
 
-
-# Prior predictive check for the log-linear model
-# https://discourse.mc-stan.org/t/help-understanding-and-setting-informative-priors-in-brms/9574/12
+# m0: Prior predictive check for the log-linear model ==============================
+# # https://discourse.mc-stan.org/t/help-understanding-and-setting-informative-priors-in-brms/9574/12
 # First set priors
 # To set a prior on the fixed intercept, we need to write 0+intercept, see
 # https://www.rensvandeschoot.com/tutorials/brms-priors/ and https://rdrr.io/cran/brms/man/brmsformula.html
@@ -262,52 +251,53 @@ dfm_test %>%
 #plot(density(rnorm(n = 100000, mean = 0, sd = 5)), main = "prior b")
 #plot(density(rnorm(n = 100000, mean = 5, sd = 5)), main = "prior b") 
 
+# re priors in prior_summary 
+# https://discourse.mc-stan.org/t/brms-default-prior-for-class-sd-in-multilevel-regression/11423/6
+
 priors <- c(set_prior("normal(0, 5)", class = "b", coef = "areaFM"),
             set_prior("normal(-1, 5)", class = "b", coef = "log_length"),
             set_prior("normal(0, 5)", class = "b", coef = "log_length:areaFM"),
-            set_prior("normal(5, 5)", class = "b", coef = "Intercept"))
+            set_prior("normal(5, 5)", class = "b", coef = "Intercept")) # This is the sigma increasing with length
 
 m0a <- brm(bf(log_growth ~ 0 + Intercept + log_length*area + (1 + log_length|birth_year/ID)),
-           family = gaussian(), data = dfm, inits = "0", iter = 500, cores = 2, chains = 2,
+           family = gaussian(), data = dfm, inits = "0", iter = 2000, cores = 3, chains = 3,
            prior = priors, sample_prior = "only") 
 
 prior_summary(m0a)
 
-pp_check(m0a, nsamples = 50)
+pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 
-conditional_effects(m0a)
-# See this for plotting conditional effects: https://bookdown.org/content/3890/interactions.html
+#plot(conditional_effects(m0a), points = TRUE)
+dfm %>%
+  ungroup() %>%
+  data_grid(log_length = seq_range(log_length, n = 101),
+            area = c("FM", "BT")) %>%
+  add_predicted_draws(m0a, re_formula = NA) %>%
+  ggplot(aes(x = log_length, y = log_growth, color = area, fill = area)) +
+  stat_lineribbon(aes(y = .prediction), .width = c(.95), alpha = 1/4) +
+  geom_point(data = dfm, alpha = 0.1, size = 0.8) +
+  scale_fill_manual(values = pal, labels = c("Warm", "Cold")) +
+  scale_color_manual(values = pal, labels = c("Warm", "Cold")) +
+  labs(y = "log(growth)", x = "log(length)", fill = "Area", colour = "Area") +
+  NULL
 
-# log-log regression with quadratic term
-priors_sq <- c(set_prior("normal(0, 5)", class = "b", coef = "areaFM"),
-               set_prior("normal(0, 5)", class = "b", coef = "areaFM:log_length_sq"),
-               set_prior("normal(0, 5)", class = "b", coef = "Intercept"),
-               set_prior("normal(-1, 5)", class = "b", coef = "log_length"), 
-               set_prior("normal(0, 5)", class = "b", coef = "log_length_sq"), 
-               set_prior("normal(5, 5)", class = "b", coef = "log_length:areaFM"))
-
-#priors_sq <- c(set_prior("normal(0, 10)", class = "b"))
-
-m0b <- brm(bf(log_growth ~ 0 + Intercept + log_length*area + log_length_sq*area +
-                (1 + log_length|birth_year/ID)), 
-           family = gaussian(), data = dfm, inits = "0", iter = 500, cores = 2, chains = 2,
-           prior = priors_sq,
-           sample_prior = "only") 
-
-prior_summary(m0b)
-
-pp_check(m0b, nsamples = 50)
-
-conditional_effects(m0b)
+ggsave("figures/supp/growth_prior_pred_check.png", width = 6.5, height = 6.5, dpi = 600)
 
 
 # m1 ==============================================================================
 # log_growth ~ log_length*area
 # https://cran.r-project.org/web/packages/insight/vignettes/insight.html
 # See the insight package for verifying model structure
+
+priors1 <- c(set_prior("normal(0, 5)", class = "b", coef = "areaFM"),
+            set_prior("normal(-1, 5)", class = "b", coef = "log_length"),
+            set_prior("normal(0, 5)", class = "b", coef = "log_length:areaFM"),
+            set_prior("normal(5, 5)", class = "b", coef = "Intercept"))
+
 m1 <- brm(bf(log_growth ~ 0 + Intercept + log_length*area + (1 + log_length|birth_year/ID)),
-          family = gaussian(), prior = priors,
-          data = dfm, iter = 3000, cores = 2, chains = 2, control = list(adapt_delta = 0.9)) 
+          family = gaussian(), prior = priors1,
+          data = dfm, iter = 5000, cores = 3, chains = 3, control = list(adapt_delta = 0.9),
+          save_all_pars = TRUE) # This is in order to moment match later
 
 summary(m1)
 plot(m1)
@@ -316,31 +306,21 @@ plot(m1)
 saveRDS(m1, "output/growth_scaling/m1.rds")
 #m1 <- readRDS("output/growth_scaling/m1.rds")
 
-pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
-
-# Plot prediction and data
-dfm %>% 
-  ungroup() %>% 
-  data_grid(log_length = seq_range(log_length, n = 101),
-           area = c("FM", "BT")) %>%
-  add_predicted_draws(m1, re_formula = NA) %>%
-  ggplot(aes(x = log_length, y = log_growth, color = area, fill = area)) +
-  stat_lineribbon(aes(y = .prediction), .width = c(.90, .50), alpha = 1/4) +
-  geom_jitter(data = dfm, alpha = 0.1, width = 0.4,
-              height = 0, size = 0.8) +
-  scale_fill_manual(values = pal, labels = c("Warm", "Cold")) +
-  scale_color_manual(values = pal, labels = c("Warm", "Cold")) +
-  labs(y = "log(growth)", x = "log(length)", fill = "Area", colour = "Area") +
-  NULL
-
 
 # m2 ==============================================================================
-# log_growth ~ log_length*area; sigma ~ log_length
+# log_growth ~ log_length + area; sigma ~ log_length
 # https://cran.r-project.org/web/packages/insight/vignettes/insight.html
 # See the insight package for verifying model structure
-m2 <- brm(bf(log_growth ~ 0 + Intercept + log_length*area + (1 + log_length|birth_year/ID),
-             sigma ~ log_length), family = gaussian(), prior = priors,
-          data = dfm, iter = 3000, cores = 2, chains = 2, control = list(adapt_delta = 0.9)) 
+
+priors2 <- c(set_prior("normal(0, 5)", class = "b", coef = "areaFM"),
+            set_prior("normal(-1, 5)", class = "b", coef = "log_length"),
+            set_prior("normal(5, 5)", class = "b", coef = "Intercept"))
+
+m2 <- brm(bf(log_growth ~ 0 + Intercept + log_length + area + (1 + log_length|birth_year/ID)),
+          family = gaussian(), prior = priors2,
+          data = dfm, iter = 5000, cores = 3, chains = 3,
+          control = list(adapt_delta = 0.9, max_treedepth = 13),
+          save_all_pars = TRUE) 
 
 summary(m2)
 plot(m2)
@@ -349,38 +329,47 @@ plot(m2)
 saveRDS(m2, "output/growth_scaling/m2.rds")
 #m2 <- readRDS("output/growth_scaling/m2.rds")
 
+
+# D. COMPARE MODELS ================================================================
+# Compare models: https://mc-stan.org/loo/articles/loo2-example.html
+# Expected log pointwise predictive density
+
+# Log linear models
+loo_m1 <- loo(m1, moment_match = TRUE)
+loo_m2 <- loo(m2, moment_match = TRUE)
+
+# The values in the elpd_diff and se_diff columns of the returned matrix are computed
+# by making pairwise comparisons between each model and the model with the largest ELPD
+# (the model in the first row). For this reason the elpd_diff column will always have
+# the value 0 in the first row (i.e., the difference between the preferred model and itself) 
+loo_compare(loo_m1, loo_m2)
+
+# > loo_compare(loo_m1, loo_m2)
+# elpd_diff se_diff
+# m2  0.0       0.0   
+# m1 -6.0       4.3 
+
+
+# E. PRODUCE FIGURES ===============================================================
 # Plot prediction and data
-dfm %>% 
-  ungroup() %>% 
+dfm %>%
+  ungroup() %>%
   data_grid(log_length = seq_range(log_length, n = 101),
             area = c("FM", "BT")) %>%
   add_predicted_draws(m2, re_formula = NA) %>%
   ggplot(aes(x = log_length, y = log_growth, color = area, fill = area)) +
   stat_lineribbon(aes(y = .prediction), .width = c(.90, .50), alpha = 1/4) +
-  geom_jitter(data = dfm, alpha = 0.1, width = 0.4,
-              height = 0, size = 0.8) +
+  geom_point(data = dfm, alpha = 0.1, size = 0.8) +
   scale_fill_manual(values = pal, labels = c("Warm", "Cold")) +
   scale_color_manual(values = pal, labels = c("Warm", "Cold")) +
   labs(y = "log(growth)", x = "log(length)", fill = "Area", colour = "Area") +
   NULL
 
+# Posterior predictive checks
+pp_check(m2, nsamples = 50) + 
+  theme(text = element_text(size = 12),
+        legend.position = c(0.8, 0.8), 
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12))
 
-
-# Posterior predictive checks ======================================================
-p1 <- pp_check(m1) + ggtitle("log-linear") + theme(aspect.ratio = 1)
-p2 <- pp_check(m2) + ggtitle("log-linear + sigma") + theme(aspect.ratio = 1)
-
-p1 + p2  + plot_layout(ncol = 2) 
-
-
-
-# E. COMPARE MODELS ================================================================
-# Compare models: https://mc-stan.org/loo/articles/loo2-example.html
-# Expected log pointwise predictive density
-
-# Log linear models
-loo_m1 <- loo(m1)
-loo_m2 <- loo(m2)
-
-loo_compare(loo_m1, loo_m2)
-
+ggsave("figures/supp/growth_ppc.png", width = 6.5, height = 6.5, dpi = 600)
