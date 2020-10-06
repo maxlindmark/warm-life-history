@@ -152,11 +152,11 @@ M0fmbt <- brm(
   iter = 2000, thin = 1, cores = 3, chains = 3, seed = 1)
 
 plot(conditional_effects(M0fmbt), points = TRUE)
-#ggsave("figures/supp/vbge_prior_pred_check.png", width = 6.5, height = 6.5, dpi = 600)
+ggsave("figures/supp/vbge_prior_pred_check.png", width = 6.5, height = 6.5, dpi = 600)
 
 pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 
-dfm %>% 
+p0 <- dfm %>% 
   data_grid(age = seq_range(age, by = 1)) %>%
   add_predicted_draws(M0fmbt, re_formula = NA) %>%
   ggplot(aes(x = factor(age), y = length_cm)) +
@@ -169,6 +169,11 @@ dfm %>%
   scale_color_manual(values = pal, labels = c("Warm", "Cold")) +
   labs(y = "Length (cm)", x = "Age (yrs)", fill = "Area", colour = "Area") +
   NULL
+
+pWord0 <- p0 + theme(text = element_text(size = 12), 
+                     legend.position = c(0.1, 0.9), 
+                     legend.title = element_text(size = 10),
+                     legend.text = element_text(size = 10))
 
 ggsave("figures/supp/vbge_prior_pred_check.png", width = 6.5, height = 6.5, dpi = 600)
 
@@ -199,7 +204,7 @@ m1 <-
     data = dfm,
     family = gaussian(),
     prior = prior,
-    iter = 2000, thin = 1, cores = 3, chains = 3, inits = "0",
+    iter = 3000, thin = 1, cores = 3, chains = 3, inits = "0",
     control = list(max_treedepth = 13, adapt_delta = 0.9))
 end_time <- Sys.time()
 end_time - start_time
@@ -234,7 +239,7 @@ m2 <-
     data = dfm,
     family = gaussian(),
     prior = prior2,
-    iter = 2000, thin = 1, cores = 3, chains = 3, inits = "0",
+    iter = 3000, thin = 1, cores = 3, chains = 3, inits = "0",
     control = list(max_treedepth = 13, adapt_delta = 0.9))
 end_time <- Sys.time()
 end_time - start_time
@@ -269,7 +274,7 @@ m3 <-
     data = dfm,
     family = gaussian(),
     prior = prior3,
-    iter = 2000, thin = 1, cores = 3, chains = 3, inits = "0",
+    iter = 3000, thin = 1, cores = 3, chains = 3, inits = "0",
     control = list(max_treedepth = 13, adapt_delta = 0.9))
 end_time <- Sys.time()
 end_time - start_time
@@ -304,7 +309,7 @@ m4 <-
     data = dfm,
     family = gaussian(),
     prior = prior4,
-    iter = 2000, thin = 1, cores = 3, chains = 3, inits = "0",
+    iter = 3000, thin = 1, cores = 3, chains = 3, inits = "0",
     control = list(max_treedepth = 13, adapt_delta = 0.9))
 end_time <- Sys.time()
 end_time - start_time
@@ -337,7 +342,7 @@ m5 <-
     data = dfm,
     family = gaussian(),
     prior = prior5,
-    iter = 2000, thin = 1, cores = 3, chains = 3, inits = "0",
+    iter = 3000, thin = 1, cores = 3, chains = 3, inits = "0",
     control = list(max_treedepth = 13, adapt_delta = 0.9))
 end_time <- Sys.time()
 end_time - start_time
@@ -370,7 +375,7 @@ m6 <-
     data = dfm,
     family = gaussian(),
     prior = prior6,
-    iter = 2000, thin = 1, cores = 3, chains = 3, inits = "0",
+    iter = 3000, thin = 1, cores = 3, chains = 3, inits = "0",
     control = list(max_treedepth = 13, adapt_delta = 0.9))
 end_time <- Sys.time()
 end_time - start_time
@@ -403,7 +408,7 @@ m7 <-
     data = dfm,
     family = gaussian(),
     prior = prior7,
-    iter = 2000, thin = 1, cores = 3, chains = 3, inits = "0",
+    iter = 3000, thin = 1, cores = 3, chains = 3, inits = "0",
     control = list(max_treedepth = 13, adapt_delta = 0.9))
 end_time <- Sys.time()
 end_time - start_time
@@ -434,7 +439,7 @@ m8 <-
     data = dfm,
     family = gaussian(),
     prior = prior8,
-    iter = 2000, thin = 1, cores = 3, chains = 3, inits = "0",
+    iter = 3000, thin = 1, cores = 3, chains = 3, inits = "0",
     control = list(max_treedepth = 13, adapt_delta = 0.9))
 end_time <- Sys.time()
 end_time - start_time
