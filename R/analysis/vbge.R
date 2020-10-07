@@ -465,16 +465,15 @@ loo_m8 <- loo(m8)
 
 # Compare models
 loo_compare(loo_m1, loo_m2, loo_m3, loo_m4, loo_m5, loo_m6, loo_m7, loo_m8)
-#     elpd_diff   se_diff
+# elpd_diff se_diff
 # m1     0.0       0.0
-# m4    -6.7       3.3
-# m2   -95.6      15.2
-# m3  -142.2      19.5
-# m7  -149.4      19.6
+# m4    -6.5       3.3
+# m2   -95.3      15.2
+# m3  -142.4      19.5
+# m7  -149.4      19.7
 # m6  -159.5      20.4
-# m5  -881.5      52.7
-# m8 -1831.3      70.4
-
+# m5  -881.6      52.6
+# m8 -1830.9      70.3
 
 # Using model 1
 
@@ -482,17 +481,19 @@ loo_compare(loo_m1, loo_m2, loo_m3, loo_m4, loo_m5, loo_m6, loo_m7, loo_m8)
 # E. PRODUCE FIGURES ===============================================================
 # https://mjskay.github.io/tidybayes/articles/tidy-brms.html
 
+pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
+
 # summary(m1)
 # Population-Level Effects: 
-# Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-# sigma_Intercept      0.21      0.02     0.17     0.25 1.00     5769     2397
-# t0FM_Intercept      -0.44      0.07    -0.58    -0.31 1.00     3311     2316
-# t0BT_Intercept      -0.14      0.03    -0.21    -0.08 1.00     4034     2328
-# KFM_Intercept        0.14      0.01     0.12     0.17 1.00      975     1624
-# KBT_Intercept        0.19      0.02     0.15     0.24 1.00      919     1349
-# LinfFM_Intercept    39.68      2.27    35.53    44.33 1.00     1280     1549
-# LinfBT_Intercept    46.46      4.97    37.40    57.08 1.00      705     1164
-# sigma_age            0.15      0.00     0.14     0.16 1.00     5592     2381
+#   Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# sigma_Intercept      0.21      0.02     0.16     0.25 1.00     8958     3494
+# t0FM_Intercept      -0.44      0.07    -0.59    -0.30 1.00     5401     2961
+# t0BT_Intercept      -0.14      0.03    -0.20    -0.08 1.00     5270     2869
+# KFM_Intercept        0.15      0.01     0.12     0.17 1.00     1969     2364
+# KBT_Intercept        0.19      0.02     0.15     0.24 1.00     1302     1959
+# LinfFM_Intercept    39.62      2.34    35.39    44.61 1.00     1967     2341
+# LinfBT_Intercept    46.38      4.84    37.76    57.00 1.00     1053     1763
+# sigma_age            0.15      0.01     0.14     0.16 1.00     9049     3414
 
 # Plot main predictions
 p1 <- dfm %>% 
@@ -520,7 +521,7 @@ pWord1 <- p1 + theme(text = element_text(size = 12), # 12 for word doc
 ggsave("figures/vbge/vbge_pred.png", width = 6.5, height = 6.5, dpi = 600)
   
 
-# Plot predictions by year:
+# Plot predictions by cohort:
 p2 <- dfm %>% 
   data_grid(age = seq_range(age, by = 1),
             birth_year = seq_range(birth_year, by = 1),
@@ -556,6 +557,22 @@ pp_check(m1, nsamples = 50) +
         legend.text = element_text(size = 12))
 
 ggsave("figures/supp/vbge_ppc.png", width = 6.5, height = 6.5, dpi = 600)
+
+# Posterior predictive checks: summary statistics median
+pp_check(m1, type = "stat", stat = 'median', nsamples = NULL) + 
+  theme(text = element_text(size = 12),
+        legend.position = c(0.9, 0.9), 
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12))
+ggsave("figures/supp/vbge_sumstat_median_ppc.png", width = 6.5, height = 6.5, dpi = 600)
+
+# Posterior predictive checks: summary statistics mean
+pp_check(m1, type = "stat", stat = 'mean', nsamples = NULL) + 
+  theme(text = element_text(size = 12),
+        legend.position = c(0.9, 0.9), 
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12))
+ggsave("figures/supp/vbge_sumstat_mean_ppc.png", width = 6.5, height = 6.5, dpi = 600)
 
 
 # Plotting mcmc_dens and use patchwork to plot them together. Note I add the vertical
