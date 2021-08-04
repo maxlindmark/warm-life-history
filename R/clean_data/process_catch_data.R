@@ -59,8 +59,8 @@ df83 <- df83 %>%
 dat83 <- df83 %>%
   gather(length, n2, c(X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12, X13, X14), na.rm = T)
 
-head(dat83) # Now the data is in a long, tidy format. 
 head(df83)
+head(dat83) # Now the data is in a long, tidy format. 
 
 # Test it is correct:
 subset(df83, year == 1983 & week == 30 & day == 2 & Stations_namn == "Asphällan")
@@ -79,6 +79,20 @@ str(dat83)
 dat83 <- dat83[rep(seq(nrow(dat83)), dat83$n2),]
 head(dat83, 50)
 
+# Test it is correct:
+df83 %>%
+  filter(year == 1983 & week == 30 & day == 2 & Stations_namn == "Asphällan") %>% 
+  arrange(n) %>% 
+  as.data.frame()
+
+dat83 %>%
+  filter(year == 1983 & week == 30 & day == 2 & Stations_namn == "Asphällan") %>% 
+  arrange(n) %>% 
+  dplyr::select(-YtTmp.I, -YtTmp.Upp, -Störning, -TmpBtnU, -Sektion_namn, -Sektion,
+                -Areanamn, -Position_N, -Position_E, -Provfiske, -Redskap) %>% 
+  as.data.frame()
+  
+
 
 #** FM 1987-1990 ===================================================================
 df87 <- read.csv("data/raw/Catch_data_FM09__1987-90_190916.csv", sep = ";", fileEncoding = "latin1")
@@ -95,7 +109,7 @@ df87 <- df87 %>%
 
 # Convert to long data frame
 # Now the X-columns will be rows AND you will get a new column that takes the old "colmn" value and put that
-# in the new column n2. DOUBLE CHECK!!
+# in the new column n2. 
 dat87 <- df87 %>%
   gather(length, n2, c(X6, X9, X11, X14, X16, X19, X21, X24, X26, X29, X31, X34, X36, X39,
                        X41, X44, X46, X49, X51, X56, X59, X61, X64, X71), na.rm = T)
@@ -112,8 +126,18 @@ dat87$length_group <- as.numeric(substring(dat87$length, 2))
 dat87 <- dat87[rep(seq(nrow(dat87)), dat87$n2),]
 head(dat87, 50)
 
-# Check its correct:
-head(subset(dat87, n2 == 3), 50)
+# Test it is correct:
+df87 %>%
+  filter(year == 1987 & week == 32 & day == 2 & Stations_namn == "Asphällan") %>% 
+  arrange(n) %>% 
+  as.data.frame()
+
+dat87 %>%
+  filter(year == 1987 & week == 32 & day == 2 & Stations_namn == "Asphällan") %>% 
+  arrange(n) %>% 
+  dplyr::select(-YtTmp.I, -YtTmp.Upp, -Störning, -TmpBtnU, -Sektion_namn, -Sektion,
+                -Areanamn, -Position_N, -Position_E, -Provfiske, -Redskap) %>% 
+  as.data.frame()
 
 
 #** FM 1991-2000 ===================================================================
@@ -146,8 +170,18 @@ dat91$length_group <- as.numeric(substring(dat91$length, 2))
 dat91 <- dat91[rep(seq(nrow(dat91)), dat91$n2),]
 head(dat91, 50)
 
-# Check its correct:
-head(subset(dat91, n2 == 3), 50)
+# Test it is correct:
+df91 %>%
+  filter(year == 1992 & week == 32 & day == 2 & Stations_namn == "Asphällan") %>% 
+  arrange(n) %>% 
+  as.data.frame()
+
+dat91 %>%
+  filter(year == 1992 & week == 32 & day == 2 & Stations_namn == "Asphällan") %>% 
+  arrange(n) %>% 
+  dplyr::select(-YtTmp.I, -YtTmp.Upp, -Störning, -TmpBtnU, -Sektion_namn, -Sektion,
+                -Areanamn, -Position_N, -Position_E, -Provfiske, -Redskap) %>% 
+  as.data.frame()
 
 
 #** FM 2001-2006 ===================================================================
@@ -182,8 +216,19 @@ dat01$length_group <- as.numeric(substring(dat01$length, 2))
 dat01 <- dat01[rep(seq(nrow(dat01)), dat01$n2),]
 head(dat01, 50)
 
-# Check its correct:
-head(subset(dat01, n2 == 3), 50)
+# Test it is correct:
+df01 %>%
+  filter(year == 2002 & week == 32 & day == 2 & Stations_namn == "Asphällan") %>% 
+  arrange(n) %>% 
+  as.data.frame()
+
+dat01 %>%
+  filter(year == 2002 & week == 32 & day == 2 & Stations_namn == "Asphällan") %>% 
+  arrange(n) %>% 
+  dplyr::select(-YtTmp.I, -YtTmp.Upp, -Störning, -TmpBtnU, -Sektion_namn, -Sektion,
+                -Areanamn, -Position_N, -Position_E, -Provfiske, -Redskap) %>% 
+  as.data.frame()
+
 
 #** Combine all together =============================================================
 catch_FM <- rbind(dat83, dat87, dat91, dat01)
@@ -193,11 +238,6 @@ catch_FM <- catch_FM %>% filter(year > 1982 & year < 2004)
 #** Apply further filters ============================================================
 # Remove disturbance
 catch_FM <- catch_FM %>% filter(Störning == 0)
-
-# They put nets many days in a row to get an overfishing affect.
-# Catches decline after a few days. I don?t want this effect!
-# Here we plot which days are fished (fill) over the week that has been fished (x-axis). "Overfishing" effect
-# could happen if a year is fished a lot in many consecutive days. Its not clear here that is the case
 
 # Full data
 ggplot(catch_FM, aes(factor(week), fill = factor(day))) +
@@ -219,141 +259,6 @@ catch_FM <- catch_FM %>% filter(year > 1986)
 unique(catch_FM$effort)
 unique(catch_FM$week)
 
-# In some years they have been fishing almost every week.
-# To not have an overfishing-effect, we use only the first part of the
-# fishing that season (first day and first week)
-
-# We can probably see the overwfishin effect here in that the first boxes
-# in each week tends to be larger (more fish), and it also declines in following weeks.
-# We therefore need to select the first days of fishing.
-
-
-# # Fick hj?lp av Johan f?r detta!
-# # Nu vill jag endast ha kvar data fr?n f?rsta dagen som man har fiskat p? varje vecka.
-# # Det kommer inte vara dag 1 alla ?r utan vissa ?r har man b?rjat fiska p? t.ex. en onsdag (dag 3).
-# # G?r en ny vektor med 0 f?r varje rad.
-# # Sen g?r jag en loop som g?r igenom alla ?ren, veckor och stationer (Bara en sektion finns i data) i min data och ger f?rsta fiskedagen 1 och alla andra dagar 0.
-# # Den nya vektorn har nu massor med 1 och 0.
-# # Sen g?r jag om den fr?n 0 och 1 till TRUE och FALSE
-# # Sen ny data frame = datsub1_dag1
-# # sen plot
-# filter_vector = rep(0,nrow(datsub1))
-# 
-# for(yr in min(datsub1$year):max(datsub1$year)){
-#   for(we in min(datsub1$week):max(datsub1$week)){
-#     for(sta in min(datsub1$Station):max(datsub1$Station)){
-#       if(length(datsub1$day[datsub1$year == yr &
-#                             datsub1$week == we &
-#                             datsub1$Station == sta])>0){
-#         
-#         da = min(datsub1$day[datsub1$year == yr &
-#                                datsub1$week == we &
-#                                datsub1$Station==sta])
-#         
-#         filter_vector = filter_vector +
-#           (datsub1$year == yr &
-#              datsub1$week == we &
-#              datsub1$day == da &
-#              datsub1$Station == sta)
-#       }
-#     }
-#   }
-# }
-# 
-# filter_vector = as.logical(filter_vector)
-# 
-# datsub1_dag1 <- data.frame(datsub1[filter_vector,])
-# 
-# # If this worked, we should now only have one fishing occacsion (the first) per week 
-# # Plot --> verkar fungera! :)
-# p1 <- ggplot(datsub1_dag1, aes(factor(week), fill = factor(day))) +
-#   facet_wrap(~year) +
-#   geom_bar()
-# 
-# p2 <- ggplot(datsub1, aes(factor(week), fill = factor(day))) +
-#   facet_wrap(~year) +
-#   geom_bar()
-# 
-# # Compare!
-# grid.arrange(p1, p2, nrow = 1)
-# 
-# # Now we need to also filter only the first week within a year
-# datsub1_dag1 <- datsub1_dag1 %>% 
-#   group_by(year) %>% 
-#   filter(week == min(week)) %>% 
-#   ungroup()
-# 
-# p3 <- ggplot(datsub1_dag1, aes(factor(week), fill = factor(day))) +
-#   facet_wrap(~year) +
-#   geom_bar()
-# 
-# grid.arrange(p1, p3, nrow = 1)
-# 
-# # All good!
-# 
-# # 3. SECTIONS AND STATIONS
-# # Which sections are used?
-# unique(datsub1_dag1$Sektion) # 1 and 2
-# # which stations?
-# unique(datsub1_dag1$Station) # 28, 29, 31, 32, 33, 34, 35, 36, 37, 38, 
-# # Probably will no. of stations vary when I have removed disturbances.
-# 
-# # no. of stations each year
-# ggplot(datsub1_dag1, aes(week, fill = factor(Station))) +
-#   facet_wrap(~year, scales = "free_y") +
-#   geom_bar() +
-#   scale_fill_brewer(palette="Spectral", name = "Stations") +
-#   theme_classic(base_size = 12) +
-#   ggtitle("Reference area")
-# 
-# ggsave("C:/Users/malin/OneDrive - Sveriges Lantbruksuniversitet/Masterarbete/R_studio project/Figurer ANALYS/appendix/Stations_FM.png",
-#        plot = last_plot(), scale = 1, width = 30, height = 20, units = "cm", dpi = 300)
-# 
-# # Actually, they do not vary much!
-# 
-# # The effort in my data is always 1 (=one night/net)
-# ggplot(datsub1_dag1, aes(week, fill = factor(effort))) +
-#   facet_wrap(~year) +
-#   geom_bar()
-# 
-# # 4. Redskap?
-# ggplot(datsub1_dag1, aes(week, fill = factor(Redskap))) +
-#   facet_wrap(~year) +
-#   geom_bar()
-# 
-# # only 9
-# 
-# # 5. Size-categories 
-# unique(datsub1_dag1$L?ngdgr_std) # 2 = 2,5 cm intervall och 3 = 1 cm intervall
-# sort(unique(datsub1_dag1$length_group))
-# 
-# # How many length groups are there in each std?
-# # 2
-# std2 <- data.frame(datsub1_dag1) %>%
-#   filter(L?ngdgr_std == 2)
-# sort(unique(std2$length_group))
-# 
-# # 3
-# std3 <- data.frame(datsub1_dag1) %>%
-#   filter(L?ngdgr_std == 3)
-# sort(unique(std3$length_group))
-# 
-# # Plot std over year
-# ggplot(datsub1_dag1, aes(week, fill = factor(L?ngdgr_std))) +
-#   facet_wrap(~year) +
-#   geom_bar() +
-#   scale_fill_brewer(palette="Set1", name = "length group std") +
-#   theme_classic(base_size = 12) +
-#   ggtitle("Reference area")
-# 
-# # ggsave("C:/Users/malin/OneDrive - Sveriges Lantbruksuniversitet/Masterarbete/R_studio project/Figurer ANALYS/appendix/length_stdFM.png",
-# #          plot = last_plot(), scale = 1, width = 16, height = 16, units = "cm", dpi = 300)
-# 
-# 
-# datsub1_dag1 <- data.frame(datsub1_dag1)
-# 
-# 
-
 
 # C. READ AND PROCESS BIOTEST DATA =================================================
 # Need to set fileEncoding here, else error: "invalid multibyte string 18"
@@ -364,7 +269,7 @@ df <- df %>%
   filter(Art == "ABBO", Årtal < 2004) %>%
   dplyr::rename(year = Årtal, week = Vecka, day = Dag, effort = Ansträngning,
                 species = Art, weight = Vikt, n = Antal) %>%
-  select(-c(Vtn.stånd,  VindRiktn.I, VindSt.I, Vind_upp_rikn, VindSt.Upp, Ström_I_rikn,
+  select(-c(Vtn.stånd, VindRiktn.I, VindSt.I, Vind_upp_rikn, VindSt.Upp, Ström_I_rikn,
             Ström_upp_rikn, Salthalt_I_yta, Salthalt_I_botten, Salthalt_upp_yta,
             Salthalt_upp_botten, Drift_i, Drift_u, Drift_dim, Siktdjup, Lufttryck_i,
             Lufttryck_upp, Sjuk_kontroll))
@@ -396,9 +301,8 @@ head(dat) # Now the data is in a long, tidy format.
 head(df)
 
 # Test it is correct:
-subset(df, year == 2003 & week == 19 & day == 4 & Stations_namn == "?nde pir")
-
-subset(dat, year == 2003 & week == 19 & day == 4 & Stations_namn == "?nde pir")
+subset(df, year == 2003 & week == 19 & day == 4 & Stations_namn == "Malören")
+subset(dat, year == 2003 & week == 19 & day == 4 & Stations_namn == "Malören")
 
 # But "length" is not numeric but a character. Create a new empty column for numeric "length"
 dat$length_group <- as.numeric(substring(dat$length, 2))
@@ -408,11 +312,21 @@ dat$length_group <- as.numeric(substring(dat$length, 2))
 dat <- dat[rep(seq(nrow(dat)), dat$n2),]
 head(dat, 50)
 
-# Check its correct:
-head(subset(dat, n2 == 3), 50)
+# Test it is correct:
+df %>%
+  filter(year == 2003 & week == 19 & day == 4 & Stations_namn == "Malören") %>% 
+  arrange(n) %>% 
+  as.data.frame()
+
+dat %>%
+  filter(year == 2003 & week == 19 & day == 4 & Stations_namn == "Malören") %>% 
+  arrange(n) %>% 
+  dplyr::select(-YtTmp.I, -YtTmp.Upp, -Störning, -TmpBtnU, -Sektion_namn, -Sektion,
+                -Areanamn, -Position_N, -Position_E, -Provfiske, -Redskap) %>% 
+  as.data.frame()
 
 # Remove disturbance
-# Disturbance kodes:
+# Disturbance codes:
 # 2: seals damage 
 # 3: Strong algal growth on the gears
 # 4: Clogging by drifting algae.
@@ -431,7 +345,7 @@ dat <- dat %>% filter(Störning == 0)
 # They put nets many days in a row to get an overfishing affect.
 # Catches decline after a few days. I don't want this effect!
 # Here we plot which days are fished (fill) over the week that has been fished (x-axis). "Overfishing" effect
-# could happen if a year is fished a lot in many consecutive days. Its not clear here that is the case
+# could happen if a year is fished a lot in many consecutive days. It's not clear here that is the case
 
 # Full data
 ggplot(dat, aes(factor(week), fill = factor(day))) +
@@ -447,7 +361,7 @@ dat %>%
 
 # Ok, 1984 is heavily fished all year actually.
 # We'll remove it since it's very different from the rest. When that is removed, we
-# can use malins for loop to select fishing days after .v40 (or any other week).
+# can use Malin's for loop to select fishing days after .v40 (or any other week).
 # The other two years with fishing before v.40 are 1996 & 2003, but that's w. 30 so we
 # don't belive it has a big effect.
 
@@ -458,7 +372,7 @@ dat <- dat %>% filter(year > 1986)
 # day and first week)
 
 # Filter autumn fishing
-# By filtering week > 40 & week < 49 I know that I include al Oktober fishing
+# By filtering week > 40 & week < 49 I know that I include all October fishing trips
 dat_oct <- dat %>%
   filter(week > 40 & week < 49) # OCTOBER
 
@@ -477,148 +391,6 @@ ggplot(dat_oct, aes(x = factor(week), fill = factor(day))) +
 
 # Rename data
 catch_BT <- dat_oct
-
-# We can probably see the overwfishin effect here in that the first boxes in each week
-# tends to be larger (more fish), and it also declines in following weeks.
-# We therefore  need to select the first days of fishing.
-
-# # How do I do that??
-# 
-# # Fick hjälp av Johan för detta! 
-# # Nu vill jag endast ha kvar data från första dagen som man har fiskat på varje vecka.
-# # Det kommer inte vara dag 1 alla år utan vissa år har man börjat fiska på t.ex. en onsdag (dag 3).
-# # Gör en ny vektor med 0 för varje rad.
-# # Sen gör jag en loop som går igenom alla åren, veckor och stationer (Bara en sektion finns i data) i min data och ger första fiskedagen 1 och alla andra dagar 0.
-# # Den nya vektorn har nu massor med 1 och 0.
-# # Sen gör jag om den från 0 och 1 till TRUE och FALSE
-# # Sen ny data frame = datsubOKT_dag1
-# # sen plot
-# filter_vector = rep(0,nrow(dat_oct))
-# 
-# for(yr in min(dat_oct$year):max(dat_oct$year)){
-#   for(we in min(dat_oct$week):max(dat_oct$week)){
-#       for(sta in min(dat_oct$Station):max(dat_oct$Station)){
-#         if(length(dat_oct$day[dat_oct$year==yr & 
-#                                 dat_oct$week==we & 
-#                                 dat_oct$Station==sta])>0){
-#           
-#           da = min(dat_oct$day[dat_oct$year==yr & 
-#                                  dat_oct$week==we &
-#                                  dat_oct$Station==sta])
-# 
-#           filter_vector = filter_vector +
-#             (dat_oct$year==yr &
-#              dat_oct$week==we & 
-#              dat_oct$day==da &
-#              dat_oct$Station==sta)
-#         }
-#       }
-#     }
-# }
-# 
-# filter_vector = as.logical(filter_vector)
-# 
-# dat_oct_dag1 <- dat_oct[filter_vector,]
-# 
-# # If this worked, we should now only have one fishing occasion (the first) per week 
-# # Plot --> verkar fungera! :)
-# ggplot(dat_oct_dag1, aes(x = factor(week), fill = factor(day))) +
-#   facet_wrap(~year) +
-#   geom_bar()
-# 
-# # OBS!! Något skumt händer med -96 och -98. Men det här kanske inte gör något
-# # eftersom jag kommer ha emd endast första dagen första veckan.
-# 
-# ggplot(datsubOKT, aes(x = factor(week), fill = factor(day))) +
-#   facet_wrap(~year) +
-#   geom_bar()
-# 
-# # Now we need to also filter only the first week within a year
-# datsubOKT_dag1 <- datsubOKT_dag1 %>% 
-#   group_by(year) %>% 
-#   filter(week == min(week)) %>% 
-#   ungroup()
-# 
-# p3 <- ggplot(datsubOKT_dag1, aes(x = factor(week), fill = factor(day))) +
-#   facet_wrap(~year) +
-#   geom_bar()
-# 
-# grid.arrange(p1, p3, nrow = 1)
-# 
-# # All good!
-# 
-# # Temperature this period?
-# # Calcualte mean temp. for each year
-# datsubOKT_temp <- datsubOKT_dag1 %>%
-#   group_by(year) %>%        
-#   summarize(mean_temp  = mean(YtTmp.I)) %>% 
-#   drop_na() %>% 
-#   ungroup
-# 
-# # Plot mean temp. over year
-# ggplot(datsubOKT_temp, aes(x = year, y = mean_temp)) + 
-#   geom_point(size = 3) +
-#   geom_line()
-# 
-# unique(datsubOKT_dag1$YtTmp.I)
-# unique(datsubOKT_dag1$YtTmp.Upp)
-# 
-# ggplot(datsubOKT_dag1, aes(x = year, y = YtTmp.I)) +
-#   geom_point(size = 1) +
-#   geom_line(data=datsubOKT_temp, aes(x = year, y = mean_temp))
-# 
-# 
-# # Save temperature data
-# write.csv(datsubOKT_temp,"temp_BT.csv", row.names = FALSE)
-# 
-# # 3. SECTIONS AND STATIONS
-# # Which sections are used?
-# unique(datsubOKT_dag1$Sektion) # only 1
-# 
-# # Which stations?
-# unique(datsubOKT_dag1$Station)
-# # Probably will no. of stations vary when I have removed disturbances. 
-# 
-# # no. of stations each year
-# ggplot(datsubOKT_dag1, aes(week, fill = factor(Station))) +
-#   facet_wrap(~year, scales = "free_y") +
-#   geom_bar() +
-#   scale_fill_brewer(palette="Spectral", name = "Stations") +
-#   theme_classic(base_size = 12) +
-#   ggtitle("Biotest lake")
-# 
-# ggsave("C:/Users/malin/OneDrive - Sveriges Lantbruksuniversitet/Masterarbete/R_studio project/Figurer ANALYS/appendix/Stations_BT.png",
-#        plot = last_plot(), scale = 1, width = 30, height = 20, units = "cm", dpi = 300)
-# 
-# # Actually, they do not vary much!
-# # The effort in my data is always 1 (=one night/net)
-# ggplot(datsubOKT_dag1, aes(week, fill = factor(effort))) +
-#   facet_wrap(~year) +
-#   geom_bar()
-# 
-# # 4. Redskap?
-# ggplot(datsubOKT_dag1, aes(week, fill = factor(Redskap))) +
-#   facet_wrap(~year) +
-#   geom_bar()
-# 
-# # 5. Size-categories 
-# unique(datsubOKT_dag1$length_group)
-# unique(datsubOKT_dag1$Längdgr_std) # 2 = 2,5 cm intervall och 3 = 1 cm intervall
-# 
-# ggplot(datsubOKT_dag1, aes(week, fill = factor(Längdgr_std))) +
-#   facet_wrap(~year) +
-#   geom_bar() +
-#   scale_fill_brewer(palette="Set1", name = "length group std") +
-#   theme_classic(base_size = 12) +
-#   ggtitle("Biotest lake")
-# 
-# ggsave("C:/Users/malin/OneDrive - Sveriges Lantbruksuniversitet/Masterarbete/R_studio project/Figurer ANALYS/appendix/length_stdBT.png",
-#        plot = last_plot(), scale = 1, width = 16, height = 16, units = "cm", dpi = 300)
-# 
-# sort(unique(datsubOKT_dag1$year))
-# 
-# 
-# 
 
 
 # D. Standardize length groups =====================================================
@@ -751,6 +523,8 @@ catch_full <- catch_full %>%
 # Insert netID
 catch_full$netID <- paste(catch_full$Area, catch_full$year, catch_full$Station, sep = ".")
 
-# Save data frame 
+catch_full
+
+# Save data frame, 1 row 1 fish
 write.csv(catch_full, "data/catch_BT_FM_1987-2003.csv", row.names = FALSE)
 
