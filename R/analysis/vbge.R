@@ -96,6 +96,9 @@ ggplot(filter(dfm, area == "BT"), aes(age, length, color = factor(gear))) +
 dfm$length_cm <- dfm$length / 10
 dfm$log_length_cm <- log(dfm$length_cm)
 
+# Change age to integer
+dfm$age <- as.integer(dfm$age)
+
 
 # C. FIT MODELS ====================================================================
 # Here are some guides I followed
@@ -213,7 +216,7 @@ summary(m1)
 plot(m1)
 
 # Save model object to not have to rerun it...
-saveRDS(m1, "output/vbge/m1.rds")
+#saveRDS(m1, "output/vbge/m1.rds")
 # m1 <- readRDS("output/vbge/m1.rds")
 
 
@@ -248,7 +251,7 @@ summary(m2)
 plot(m2)
 
 # Save model object to not have to rerun it...
-saveRDS(m2, "output/vbge/m2.rds")
+#saveRDS(m2, "output/vbge/m2.rds")
 # m2 <- readRDS("output/vbge/m2.rds")
 
 
@@ -283,7 +286,7 @@ summary(m3)
 plot(m3)
 
 # Save model object to not have to rerun it...
-saveRDS(m3, "output/vbge/m3.rds")
+#saveRDS(m3, "output/vbge/m3.rds")
 # m3 <- readRDS("output/vbge/m3.rds")
 
 
@@ -318,7 +321,7 @@ summary(m4)
 plot(m4)
 
 # Save model object to not have to rerun it...
-saveRDS(m4, "output/vbge/m4.rds")
+#saveRDS(m4, "output/vbge/m4.rds")
 # m4 <- readRDS("output/vbge/m4.rds")
 
 
@@ -351,7 +354,7 @@ summary(m5)
 plot(m5)
 
 # Save model object to not have to rerun it...
-saveRDS(m5, "output/vbge/m5.rds")
+#saveRDS(m5, "output/vbge/m5.rds")
 # m5 <- readRDS("output/vbge/m5.rds")
 
 
@@ -384,7 +387,7 @@ summary(m6)
 plot(m6)
 
 # Save model object to not have to rerun it...
-saveRDS(m6, "output/vbge/m6.rds")
+#saveRDS(m6, "output/vbge/m6.rds")
 # m6 <- readRDS("output/vbge/m6.rds")
 
 
@@ -417,7 +420,7 @@ summary(m7)
 plot(m7)
 
 # Save model object to not have to rerun it...
-saveRDS(m7, "output/vbge/m7.rds")
+#saveRDS(m7, "output/vbge/m7.rds")
 # m7 <- readRDS("output/vbge/m7.rds")
 
 
@@ -448,7 +451,7 @@ summary(m8)
 plot(m8)
 
 # Save model object to not have to rerun it...
-saveRDS(m8, "output/vbge/m8.rds")
+#saveRDS(m8, "output/vbge/m8.rds")
 # m8 <- readRDS("output/vbge/m8.rds")
 
 
@@ -548,7 +551,6 @@ pWord2 <- p2 + theme(text = element_text(size = 12), # 12 for word doc
 
 ggsave("figures/supp/vbge_pred_year.png", width = 6.5, height = 6.5, dpi = 600)
 
-
 # Plot posterior predictive checks 
 pp_check(m1, nsamples = 50) + 
   theme(text = element_text(size = 12),
@@ -637,53 +639,42 @@ ggsave("figures/vbge/K_Linf_posterior.png", width = 6.5, height = 6.5, dpi = 600
 color_scheme_set("blue")
 random_FM_Linf <- mcmc_areas_ridges(posterior, regex_pars = "r_birth_year__LinfFM")
 word_random_FM_Linf <- random_FM_Linf + theme(text = element_text(size = 12))
-ggsave("figures/vbge/random_FM_Linf.png", width = 6.5, height = 6.5, dpi = 600)
+ggsave("figures/supp/vbge_random_FM_Linf.png", width = 6.5, height = 6.5, dpi = 600)
 
 # BT_Linf
 color_scheme_set("red")
 random_BT_Linf <- mcmc_areas_ridges(posterior, regex_pars = "r_birth_year__LinfBT")
 word_random_BT_Linf <- random_BT_Linf + theme(text = element_text(size = 12))
-ggsave("figures/vbge/random_BT_Linf.png", width = 6.5, height = 6.5, dpi = 600)
+ggsave("figures/supp/vbge_random_BT_Linf.png", width = 6.5, height = 6.5, dpi = 600)
 
 # FM_K
 color_scheme_set("blue")
 random_FM_K <- mcmc_areas_ridges(posterior, regex_pars = "r_birth_year__KFM")
 word_random_FM_K <- random_FM_K + theme(text = element_text(size = 12))
-ggsave("figures/vbge/random_FM_K.png", width = 6.5, height = 6.5, dpi = 600)
+ggsave("figures/supp/vbge_random_FM_K.png", width = 6.5, height = 6.5, dpi = 600)
 
 # BT_K
 color_scheme_set("red")
 random_BT_K <- mcmc_areas_ridges(posterior, regex_pars = "r_birth_year__KBT")
 word_random_BT_K <- random_BT_K + theme(text = element_text(size = 12))
-ggsave("figures/vbge/random_BT_K.png", width = 6.5, height = 6.5, dpi = 600)
+ggsave("figures/supp/vbge_random_BT_K.png", width = 6.5, height = 6.5, dpi = 600)
 
 
-# More plotting options from Bayesplot
-# posterior <- as.array(m1)
+# Chain convergence
+posterior <- as.array(m1)
+dimnames(posterior)
 
-# Check parameter names
-# names(posterior[1,1,])
-#
-# # Plot MCMC draws
-# color_scheme_set("pink")
-#
-# # L_inf
-# p_inf <- mcmc_areas(posterior, pars = c("b_LinfFM_Intercept", "b_LinfBT_Intercept"),
-#   prob = 0.8, point_est = "mean") +
-#   scale_y_discrete(labels = c("Cold L_infinity", "Warm L_infinity")) +
-#   xlab("Length (cm)")
-#
-# pWordp_inf <- p_inf + theme(text = element_text(size = 12))
-#
-# ggsave("figures/vbge/L_inf_posterior.png", width = 6.5, height = 6.5, dpi = 600)
-#
-#
-# # K
-# p_K <- mcmc_areas(posterior, pars = c("b_KBT_Intercept", "b_KFM_Intercept"),
-#   prob = 0.8, prob_outer = 0.99, point_est = "mean") +
-#   scale_y_discrete(labels = c("Warm K", "Cold K")) +
-#   xlab("K (t^-1)")
-#
-# pWordp_K <- p_K + theme(text = element_text(size = 12))
-#
-# ggsave("figures/vbge/K_posterior.png", width = 6.5, height = 6.5, dpi = 600)
+color_scheme_set("mix-blue-red")
+mcmc_trace(posterior,
+           pars = c("b_sigma_Intercept", "b_t0FM_Intercept", "b_t0BT_Intercept", 
+                    "b_KFM_Intercept", "b_KBT_Intercept", "b_LinfFM_Intercept",
+                    "b_LinfBT_Intercept", "b_sigma_age"),
+           facet_args = list(ncol = 2, strip.position = "left")) + 
+  theme(text = element_text(size = 12),
+        #legend.position = c(0.7, 0.1), 
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12))
+
+ggsave("figures/supp/vbge_chain_convergence.png", width = 7.5, height = 7.5, dpi = 600)
+
+
