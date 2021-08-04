@@ -44,6 +44,12 @@ options(mc.cores = parallel::detectCores())
 # original data from Huss et al (2019)
 df <- read.csv("data/size_at_age_BT_FM_1970-2004.csv", sep = ";")
 
+# test
+df %>% arrange(length)
+df %>% arrange(desc(length))
+
+max(df$length)
+
 # Check out how many ("length") unique ID observations there are
 length(unique(df$ID)) 
 
@@ -139,13 +145,15 @@ df_growth %>% filter(ID == "1983127BT")
 df_all %>% filter(ID == "1983127BT")
 
 # Remove NA growth and length individuals from this analysis. Calculate other things as well
+# centering and squaring etc
 dfm <- df_all %>%
   drop_na(growth) %>%
   filter(growth > 0) %>%
   drop_na(length) %>% 
   mutate(log_length = log(length),
          log_growth = log(growth),
-         log_length_sq = log_length*log_length) %>% 
+         log_length_ct = log_length - mean(log_length),
+         log_length_ct_sq = log_length_ct*log_length_ct) %>% 
   separate(ID, c("catch_year", "ID2"), sep = 4) %>% 
   mutate_at(c("catch_year", "catch_age", "back_calc_age"), as.numeric) %>% 
   mutate(birth_year = catch_year - catch_age,
@@ -254,7 +262,6 @@ dfm %>%
   NULL
 
 
-
 # C. FIT MODELS ====================================================================
 # I'm following the multilevel model vignette here: https://cran.r-project.org/web/packages/brms/index.html
 # And this one for specifying random structure: https://discourse.mc-stan.org/t/levels-within-levels/8814/3
@@ -267,8 +274,8 @@ dfm %>%
 # m1 ==============================================================================
 # With quadratic interaction
 
-m1a <- brm(bf(log_growth ~ log_length*area + log_length_sq*area + (1|birth_year/ID),
-              sigma ~ log_length),
+m1a <- brm(bf(log_growth ~ log_length_ct*area + log_length_ct_sq*area + (1|birth_year/ID),
+              sigma ~ log_length_ct),
           family = gaussian(), data = dfm, iter = 4000, cores = 3, chains = 3,
           save_all_pars = TRUE)
 
@@ -277,14 +284,14 @@ plot(m1a)
 prior_summary(m1a)
 
 # Save model object to not have to rerun it...
-saveRDS(m1a, "output/growth_scaling/m1a.rds")
+#saveRDS(m1a, "output/growth_scaling/m1a.rds")
 #m1a <- readRDS("output/growth_scaling/m1a.rds")
 
 
 # m1b ==============================================================================
 # No quadratic interaction
-m1b <- brm(bf(log_growth ~ log_length*area + log_length_sq + (1|birth_year/ID),
-              sigma ~ log_length),
+m1b <- brm(bf(log_growth ~ log_length_ct*area + log_length_ct_sq + (1|birth_year/ID),
+              sigma ~ log_length_ct),
           family = gaussian(), data = dfm, iter = 4000, cores = 3, chains = 3,
           save_all_pars = TRUE)
 
@@ -293,7 +300,7 @@ plot(m1b)
 prior_summary(m1b)
 
 # Save model object to not have to rerun it...
-saveRDS(m1b, "output/growth_scaling/m1b.rds")
+#saveRDS(m1b, "output/growth_scaling/m1b.rds")
 #m1b <- readRDS("output/growth_scaling/m1b.rds")
 
 
@@ -301,8 +308,8 @@ saveRDS(m1b, "output/growth_scaling/m1b.rds")
 # Student model
 # With quadratic interaction
 
-m2a <- brm(bf(log_growth ~ log_length*area + log_length_sq*area + (1|birth_year/ID),
-              sigma ~ log_length),
+m2a <- brm(bf(log_growth ~ log_length_ct*area + log_length_ct_sq*area + (1|birth_year/ID),
+              sigma ~ log_length_ct),
           family = student(), data = dfm, iter = 4000, cores = 3, chains = 3,
           save_all_pars = TRUE)
 
@@ -311,7 +318,7 @@ plot(m2a)
 prior_summary(m2a)
 
 # Save model object to not have to rerun it...
-saveRDS(m2a, "output/growth_scaling/m2a.rds")
+#saveRDS(m2a, "output/growth_scaling/m2a.rds")
 #m2a <- readRDS("output/growth_scaling/m2a.rds")
 
 
@@ -319,8 +326,8 @@ saveRDS(m2a, "output/growth_scaling/m2a.rds")
 # Student model
 # No quadratic interaction
 
-m2b <- brm(bf(log_growth ~ log_length*area + log_length_sq + (1|birth_year/ID),
-              sigma ~ log_length),
+m2b <- brm(bf(log_growth ~ log_length_ct*area + log_length_ct_sq + (1|birth_year/ID),
+              sigma ~ log_length_ct),
            family = student(), data = dfm, iter = 4000, cores = 3, chains = 3,
            save_all_pars = TRUE)
 
@@ -329,9 +336,8 @@ plot(m2b)
 prior_summary(m2b)
 
 # Save model object to not have to rerun it...
-saveRDS(m2b, "output/growth_scaling/m2b.rds")
+#saveRDS(m2b, "output/growth_scaling/m2b.rds")
 #m2b <- readRDS("output/growth_scaling/m2b.rds")
-
 
 
 # D. COMPARE MODELS ================================================================
@@ -347,9 +353,11 @@ loo_compare(loo_m1a, loo_m1b, loo_m2a, loo_m2b)
 # > loo_compare(loo_m1a, loo_m1b, loo_m2a, loo_m2b)
 # elpd_diff se_diff
 # m2b  0.0       0.0   
-# m2a -3.0       0.7   
-# m1b -9.2       6.7   
-# m1a -9.6       6.7 
+# m2a -1.0       0.7   
+# m1b -6.0       6.7   
+# m1a -9.2       6.7   
+
+summary(m2b)
 
 
 # E. PRODUCE FIGURES ===============================================================
@@ -358,10 +366,11 @@ pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 
 p1 <- dfm %>%
   ungroup() %>%
-  data_grid(log_length = seq_range(log_length, n = 101),
+  data_grid(log_length_ct = seq_range(log_length_ct, n = 101),
             area = c("FM", "BT")) %>%
-  mutate(log_length_sq = log_length*log_length) %>% 
+  mutate(log_length_ct_sq = log_length_ct*log_length_ct) %>% 
   add_predicted_draws(m2b, re_formula = NA) %>%
+  mutate(log_length = log_length_ct + mean(dfm$log_length)) %>% 
   ggplot(aes(x = log_length, y = log_growth, color = area, fill = area)) +
   stat_lineribbon(aes(y = .prediction), .width = c(.90, .50), alpha = 1/4) +
   geom_point(data = dfm, alpha = 0.1, size = 0.8) +
@@ -400,4 +409,21 @@ pp_check(m2b, type = "stat", stat = 'mean', nsamples = NULL) +
         legend.title = element_text(size = 12),
         legend.text = element_text(size = 12))
 ggsave("figures/supp/growth_sumstat_mean_ppc.png", width = 6.5, height = 6.5, dpi = 600)
+
+# Chain convergence
+posterior <- as.array(m2b)
+dimnames(posterior)
+
+color_scheme_set("mix-blue-red")
+mcmc_trace(posterior,
+           pars = c("b_Intercept", "b_sigma_Intercept", "b_log_length_ct", "b_areaFM", 
+                    "b_log_length_ct_sq", "b_log_length_ct:areaFM", "b_sigma_log_length_ct"),
+           facet_args = list(ncol = 2, strip.position = "left")) + 
+  theme(text = element_text(size = 12),
+        #legend.position = c(0.7, 0.1), 
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12))
+
+ggsave("figures/supp/growth_chain_convergence.png", width = 7.5, height = 7.5, dpi = 600)
+
 
