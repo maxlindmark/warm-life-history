@@ -7,9 +7,11 @@
 # 
 # B. Read data
 # 
-# C. Fit models
+# C. Fit models of spectra by year using Andrew's model
 #
-# D. Produce figures
+# D. Fit models of slopes and percentiles
+#
+# E. Produce figures
 # 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -17,11 +19,18 @@
 rm(list = ls())
 
 # Load libraries (install first if needed)
-library(tidyverse)
+library(tidyverse); theme_set(theme_classic(base_size = 12))
 library(tidylog)
 library(RColorBrewer)
 library(patchwork)
 library(sizeSpectra)
+library(brms)
+library(nlstools)
+library(bayesplot)
+library(tidylog)
+library(tidybayes)
+library(RColorBrewer)
+library(modelr)
 
 # other attached packages:
 # [1] sizeSpectra_1.0.0.0 patchwork_1.0.1     RColorBrewer_1.1-2  tidylog_1.0.2       forcats_0.5.0       stringr_1.4.0      
@@ -44,7 +53,7 @@ df %>%
   ggplot(., aes(netID, n)) +
   geom_histogram(stat ="identity")
 
-df <- df %>% group_by(Area, year) %>% mutate(n_nets = length(unique(netID))) %>% ungroup()
+df <- df %>% group_by(Area, year) %>% mutate(n_nets_year = length(unique(netID))) %>% ungroup()
 
 # Test
 df %>% filter(year == 1995 & Area == "BT") %>% distinct(netID)
@@ -72,13 +81,13 @@ p1/p2
 # Now we want to process the data a bit further... Following Edwards sizeSpectra package
 # we want the data as follows:
 # Year 	SpecCode 	LngtClass 	Number 	LWa 	LWb 	bodyMass 	Biomass
-# Hence, for each year, we nee dot calculate the CPUE
+# Hence, for each year, we need to calculate the CPUE
 # https://htmlpreview.github.io/?https://raw.githubusercontent.com/andrew-edwards/sizeSpectra/master/doc/MEPS_IBTS_MLEbins.html
 
 # Group by year, Area and length group, summarize and get n()
 df2 <- df %>%
   group_by(year, Area, length_group) %>% 
-  summarise(catch_n = n()) %>% # Get catch as a column, this is now the number of rows a given length occurs
+  summarise(catch_n = n()) %>% # Get catch as a column, this is now the number of rows a given length occurs each year and area
   ungroup() %>% 
   mutate(effort_id = paste(year, Area, sep = ".")) %>% 
   as.data.frame()
@@ -86,7 +95,7 @@ df2 <- df %>%
 # Now we need to get the effort back in there
 df_effort <- df %>%
   mutate(effort_id = paste(year, Area, sep = ".")) %>% 
-  select(effort_id, n_nets) %>% 
+  select(effort_id, n_nets_year) %>% 
   distinct(effort_id, .keep_all = TRUE) %>% 
   as.data.frame()
 
@@ -94,7 +103,7 @@ df_effort <- df %>%
 df3 <- left_join(df2, df_effort, by = "effort_id") %>% as.data.frame()
 
 # Looks Ok!
-df %>% filter(year == 1987 & Area == "FM") %>% distinct(n_nets, .keep_all = TRUE)
+df %>% filter(year == 1987 & Area == "FM") %>% distinct(n_nets_year, .keep_all = TRUE)
 df2 %>% filter(effort_id == "1987.FM")
 df3 %>% filter(effort_id == "1987.FM")
 
@@ -110,7 +119,7 @@ df4 <- df3 %>%
   mutate(max_length_group_cm = min_length_group_cm + 2.4, # Get max length in bin (2.5 cm length-classes)
          wmin = a*min_length_group_cm^b,     # Get min mass in bin
          wmax = a*max_length_group_cm^b) %>% # Get max mass in bin
-  mutate(cpue_numbers = catch_n/n_nets, # Get numbers CPUE, divide by the previously create n_nets, which is # of unique net ID's in each area and year
+  mutate(cpue_numbers = catch_n/n_nets_year, # Get numbers CPUE, divide by the previously create n_nets, which is # of unique net ID's in each area and year
          cpue_biom = (catch_n*((wmin + wmax)/2))/n_nets) %>% # Get biomass CPUE, use mean of mass in size range
   mutate(SpecCode = "Perch")
 
@@ -445,21 +454,83 @@ res = timeSerPlot(FM_spectra,
                   xTicksSmallInc = 1,
                   yTicksSmallInc = 0.05)
 
-# Plot and color
+res = timeSerPlot(BT_spectra,
+                  legName = "(a) MLEbins",
+                  #                  yLim = c(-2.2, -0.9),
+                  xLab = "Year",
+                  method = "MLEbins",
+                  legPos = "bottomleft",
+                  weightReg = TRUE,
+                  xTicksSmallInc = 1,
+                  yTicksSmallInc = 0.05)
+
+
+
+# D. FIT MODELS OF SLOPES ==========================================================
+# Size spectrum slopes =============================================================
+
+# Mean centre year variable
+spectra <- spectra %>%
+  mutate(Year_ct = Year - min(Year),
+         Year_ct = as.integer(Year_ct))
+
+# Without interaction
+m1 <- brm(b ~ Year_ct + area + (1|Year_ct),
+          family = gaussian(), data = spectra, iter = 4000, cores = 3, chains = 3,
+          save_all_pars = TRUE,
+          control = list(adapt_delta = 0.99))
+
+# With interaction
+m2 <- brm(b ~ Year_ct * area + (1|Year_ct),
+          family = gaussian(), data = spectra, iter = 4000, cores = 3, chains = 3,
+          save_all_pars = TRUE,
+          control = list(adapt_delta = 0.99))
+
+loo_m1 <- loo(m1)
+loo_m2 <- loo(m2, moment_match = TRUE)
+
+loo_compare(loo_m1, loo_m2)
+
+summary(m1)
+plot(m1)
+
+# Plot
 pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 
-ggplot(spectra, aes(factor(Year), b, color = area)) +
-  geom_point(size = 3) + 
-  stat_smooth(method = "lm") +
-  geom_errorbar(aes(factor(Year), ymin = confMin, ymax = confMax), width = 0.2) + 
-  scale_color_manual(values = pal, labels = c("Warm", "Cold"), name = "Area") + 
-  labs(x = "Year",
+p1 <- spectra %>%
+  ungroup() %>%
+  data_grid(Year_ct = seq_range(Year_ct, by = 1),
+            area = c("FM", "BT")) %>%
+  add_predicted_draws(m1, re_formula = NA) %>%
+  mutate(Year = Year_ct + min(spectra$Year)) %>% 
+  ggplot(aes(x = Year, y = b, color = area, fill = area)) +
+  stat_lineribbon(aes(y = .prediction), .width = c(.90, .50), alpha = 1/4) +
+  geom_point(data = spectra, alpha = 1, size = 3) +
+  scale_fill_manual(values = pal, labels = c("Warm", "Cold")) +
+  scale_color_manual(values = pal, labels = c("Warm", "Cold")) +
+  labs(color = "Area", fill = "Area",
+       x = "Year",
        y = expression(paste("Size-spectrum slope ", italic((b))))) +
-  guides(color = guide_legend(override.aes = list(fill = NA))) +
-  theme(legend.position = c(0.8, 0.2)) +
   NULL
-  
-  
-  
+
+pWord1 <- p1 + theme(text = element_text(size = 12), 
+                     legend.position = c(0.1, 0.9), 
+                     legend.title = element_text(size = 10),
+                     legend.text = element_text(size = 10))
+
+ggsave("figures/size_spectra_slopes.png", width = 6.5, height = 6.5, dpi = 600)
 
 
+# Size percentiles =================================================================
+#perc_dat <- 
+  
+# df %>%
+#   group_by(Area, year) %>% 
+#   summarise(q95 = quantile(length_group, 0.95)) %>% 
+#   as.data.frame() %>% 
+#   ggplot(., aes(year, q95, color = Area)) + geom_point() + stat_smooth(method = "lm")
+# 
+# quantile(filter(df, Area == "BT")$length_group, c(0.5, 0.95, .999))
+# quantile(filter(df, Area == "FM")$length_group, c(0.5, 0.95, .999))
+
+# Skip for now, doesn't work well with size-groups...
