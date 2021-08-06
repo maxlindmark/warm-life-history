@@ -217,7 +217,7 @@ plot(m1)
 
 # Save model object to not have to rerun it...
 #saveRDS(m1, "output/vbge/m1.rds")
-# m1 <- readRDS("output/vbge/m1.rds")
+#m1 <- readRDS("output/vbge/m1.rds")
 
 
 # M2: L_inf common parameter, t_0 & K specific =====================================
@@ -237,7 +237,7 @@ m2 <-
        t0BT ~ 1,
        KFM ~ 1 + (1|birth_year),    # parameter varying by birth_year
        KBT ~ 1 + (1|birth_year),    # parameter varying by birth_year
-       Linf ~ 1 + (1|birth_year), # parameter varying by birth_year
+       Linf ~ 1 + (1|birth_year),   # parameter varying by birth_year
        nl = TRUE),
     data = dfm,
     family = gaussian(),
@@ -516,13 +516,76 @@ p1 <- dfm %>%
   NULL
 
 pWord1 <- p1 + theme(text = element_text(size = 12), # 12 for word doc
-                     legend.position = c(0, 1), 
-                     legend.justification = c(0, 1),
-                     legend.title = element_text(size = 20),
-                     legend.text = element_text(size = 20))
+                     legend.position = c(0.1, 0.9), 
+                     legend.title = element_text(size = 12),
+                     legend.text = element_text(size = 12))
 
-ggsave("figures/vbge/vbge_pred.png", width = 6.5, height = 6.5, dpi = 600)
+ggsave("figures/supp/vbge_pred.png", width = 6.5, height = 6.5, dpi = 600)
   
+
+# Plotting mcmc_dens and use patchwork to plot them together. Note I add the vertical
+# lines manually simply by extracting the fixed effects
+m1_fe <- fixef(m1, probs = c(0.1, 0.9)) %>% as.data.frame()
+posterior <- as.array(m1)
+
+# Define matching palette
+pal2 <- alpha(pal, alpha = 0.8)
+
+color_scheme_set(rep("white", 6)) # This is to be able to have a fill color with alpha
+
+Linf_BT <- mcmc_dens(posterior, pars = c("b_LinfBT_Intercept"),
+          facet_args = list(nrow = 2)) + 
+  geom_density(fill = pal2[1]) + 
+  geom_vline(xintercept = m1_fe$Estimate[7], linetype = 1, color = "white") +
+  geom_vline(xintercept = m1_fe$Q10[7], linetype = 2, color = "white") +
+  geom_vline(xintercept = m1_fe$Q90[7], linetype = 2, color = "white") +
+  coord_cartesian(xlim = c(32, 65)) +
+  labs(x = expression(paste(italic(L[inf]), " [cm]")), y = "") + 
+  #annotate("text", -Inf, Inf, label = "Warm", size = 5, hjust = -0.5, vjust = 1.3) +
+  theme(text = element_text(size = 12)) 
+
+Linf_FM <- mcmc_dens(posterior, pars = c("b_LinfFM_Intercept"),
+                     facet_args = list(nrow = 2)) + 
+  geom_density(fill = pal2[2]) + 
+  geom_vline(xintercept = m1_fe$Estimate[6], linetype = 1, color = "white") +
+  geom_vline(xintercept = m1_fe$Q10[6], linetype = 2, color = "white") +
+  geom_vline(xintercept = m1_fe$Q90[6], linetype = 2, color = "white") +
+  coord_cartesian(xlim = c(32, 65)) +
+  labs(x = expression(paste(italic(L[inf]), " [cm]")), y = "") + 
+  #annotate("text", -Inf, Inf, label = "Cold", size = 5, hjust = -0.5, vjust = 1.3) +
+  theme(text = element_text(size = 12))
+
+K_BT <- mcmc_dens(posterior, pars = c("b_KBT_Intercept"),
+                     facet_args = list(nrow = 2)) + 
+  geom_density(fill = pal2[1]) + 
+  geom_vline(xintercept = m1_fe$Estimate[5], linetype = 1, color = "white") +
+  geom_vline(xintercept = m1_fe$Q10[5], linetype = 2, color = "white") +
+  geom_vline(xintercept = m1_fe$Q90[5], linetype = 2, color = "white") +
+  coord_cartesian(xlim = c(0.09, 0.28)) +
+  xlab(expression(paste(italic(K), " [", yr^-1,"]", sep = ""))) + 
+  theme(text = element_text(size = 12)) 
+
+K_FM <- mcmc_dens(posterior, pars = c("b_KFM_Intercept"),
+                     facet_args = list(nrow = 2)) + 
+  geom_density(fill = pal2[2]) + 
+  geom_vline(xintercept = m1_fe$Estimate[4], linetype = 1, color = "white") +
+  geom_vline(xintercept = m1_fe$Q10[4], linetype = 2, color = "white") +
+  geom_vline(xintercept = m1_fe$Q90[4], linetype = 2, color = "white") +
+  coord_cartesian(xlim = c(0.09, 0.28)) +
+  xlab(expression(paste(italic(K), " [", yr^-1,"]", sep = ""))) + 
+  theme(text = element_text(size = 12))
+
+Linf_BT + K_BT + Linf_FM + K_FM
+
+ggsave("figures/supp/K_Linf_posterior.png", width = 6.5, height = 6.5, dpi = 600)
+
+# Plotting all together
+pWord1 / (Linf_BT + K_BT + Linf_FM + K_FM) +
+  plot_layout(heights = c(2, 1)) +
+  plot_annotation(tag_levels = 'A')
+
+#ggsave("figures/vbge_pred_K_Linf_post.png", width = 6.5, height = 6.5, dpi = 600)
+
 
 # Plot predictions by cohort:
 p2 <- dfm %>% 
@@ -533,25 +596,26 @@ p2 <- dfm %>%
          areaBT = ifelse(area == "BT", 1, 0)) %>% 
   add_predicted_draws(m1) %>%
   ggplot(aes(x = factor(age), y = length_cm, color = area, fill = area)) +
-    stat_lineribbon(aes(y = .prediction), .width = c(.8), alpha = 0.2) +
-    geom_jitter(data = dfm, alpha = 0.2, width = 0.3,
-                height = 0, size = 0.6) +
-    stat_lineribbon(aes(y = .prediction), .width = c(.8), alpha = 0.8,
-                    fill = NA, size = 0.8) +
-    facet_wrap(~birth_year) +
-    scale_fill_manual(values = pal, labels = c("Warm", "Cold")) +
-    scale_color_manual(values = pal, labels = c("Warm", "Cold")) +
-    labs(y = "Length (cm)", x = "Age (yrs)", fill = "Area", colour = "Area") +
+  stat_lineribbon(aes(y = .prediction), .width = c(.8), alpha = 0.2) +
+  geom_jitter(data = dfm, alpha = 0.2, width = 0.3,
+              height = 0, size = 0.6) +
+  stat_lineribbon(aes(y = .prediction), .width = c(.8), alpha = 0.8,
+                  fill = NA, size = 0.8) +
+  facet_wrap(~birth_year) +
+  scale_fill_manual(values = pal, labels = c("Warm", "Cold")) +
+  scale_color_manual(values = pal, labels = c("Warm", "Cold")) +
+  labs(y = "Length (cm)", x = "Age (yrs)", fill = "Area", colour = "Area") +
   NULL
 
 pWord2 <- p2 + theme(text = element_text(size = 12), # 12 for word doc
                      legend.position = c(0.7, 0.1), 
-                     legend.title = element_text(size = 20),
-                     legend.text = element_text(size = 20))
+                     legend.title = element_text(size = 12),
+                     legend.text = element_text(size = 12))
 
-ggsave("figures/supp/vbge_pred_year.png", width = 6.5, height = 6.5, dpi = 600)
+#ggsave("figures/supp/vbge_pred_year.png", width = 6.5, height = 6.5, dpi = 600)
 
 # Plot posterior predictive checks 
+color_scheme_set("blue")
 pp_check(m1, nsamples = 50) + 
   theme(text = element_text(size = 12),
         legend.position = c(0.8, 0.8), 
@@ -575,64 +639,6 @@ pp_check(m1, type = "stat", stat = 'mean', nsamples = NULL) +
         legend.title = element_text(size = 12),
         legend.text = element_text(size = 12))
 ggsave("figures/supp/vbge_sumstat_mean_ppc.png", width = 6.5, height = 6.5, dpi = 600)
-
-
-# Plotting mcmc_dens and use patchwork to plot them together. Note I add the vertical
-# lines manually simply by extracting the fixed effects
-m1_fe <- fixef(m1, probs = c(0.1, 0.9)) %>% as.data.frame()
-posterior <- as.array(m1)
-
-# Define matching palette
-pal2 <- alpha(pal, alpha = 0.5)
-
-color_scheme_set(rep("white", 6)) # This is to be able to have a fill color with alpha
-
-Linf_BT <- mcmc_dens(posterior, pars = c("b_LinfBT_Intercept"),
-          facet_args = list(nrow = 2)) + 
-  geom_density(fill = pal2[1]) + 
-  geom_vline(xintercept = m1_fe$Estimate[7], linetype = 1, color = "white") +
-  geom_vline(xintercept = m1_fe$Q10[7], linetype = 2, color = "white") +
-  geom_vline(xintercept = m1_fe$Q90[7], linetype = 2, color = "white") +
-  coord_cartesian(xlim = c(32, 65)) +
-  labs(x = expression(paste(italic(L[inf]), " [cm]")), y = "Warm") + 
-  #annotate("text", -Inf, Inf, label = "Warm", size = 5, hjust = -0.5, vjust = 1.3) +
-  theme(text = element_text(size = 12)) 
-
-Linf_FM <- mcmc_dens(posterior, pars = c("b_LinfFM_Intercept"),
-                     facet_args = list(nrow = 2)) + 
-  geom_density(fill = pal2[2]) + 
-  geom_vline(xintercept = m1_fe$Estimate[6], linetype = 1, color = "white") +
-  geom_vline(xintercept = m1_fe$Q10[6], linetype = 2, color = "white") +
-  geom_vline(xintercept = m1_fe$Q90[6], linetype = 2, color = "white") +
-  coord_cartesian(xlim = c(32, 65)) +
-  labs(x = expression(paste(italic(L[inf]), " [cm]")), y = "Cold") + 
-  #annotate("text", -Inf, Inf, label = "Cold", size = 5, hjust = -0.5, vjust = 1.3) +
-  theme(text = element_text(size = 12))
-
-K_BT <- mcmc_dens(posterior, pars = c("b_KBT_Intercept"),
-                     facet_args = list(nrow = 2)) + 
-  geom_density(fill = pal2[1]) + 
-  geom_vline(xintercept = m1_fe$Estimate[5], linetype = 1, color = "white") +
-  geom_vline(xintercept = m1_fe$Q10[5], linetype = 2, color = "white") +
-  geom_vline(xintercept = m1_fe$Q90[5], linetype = 2, color = "white") +
-  coord_cartesian(xlim = c(0.1, 0.27)) +
-  xlab(expression(paste(italic(K)))) + 
-  theme(text = element_text(size = 12)) 
-
-K_FM <- mcmc_dens(posterior, pars = c("b_KFM_Intercept"),
-                     facet_args = list(nrow = 2)) + 
-  geom_density(fill = pal2[2]) + 
-  geom_vline(xintercept = m1_fe$Estimate[4], linetype = 1, color = "white") +
-  geom_vline(xintercept = m1_fe$Q10[4], linetype = 2, color = "white") +
-  geom_vline(xintercept = m1_fe$Q90[4], linetype = 2, color = "white") +
-  coord_cartesian(xlim = c(0.1, 0.27)) +
-  xlab(expression(paste(italic(K)))) + 
-  theme(text = element_text(size = 12))
-
-Linf_BT + K_BT + Linf_FM + K_FM
-
-ggsave("figures/vbge/K_Linf_posterior.png", width = 6.5, height = 6.5, dpi = 600)
-
 
 # Plot random effects (as offsets, check this is true!)
 # FM_Linf
@@ -676,5 +682,4 @@ mcmc_trace(posterior,
         legend.text = element_text(size = 12))
 
 ggsave("figures/supp/vbge_chain_convergence.png", width = 7.5, height = 7.5, dpi = 600)
-
 
