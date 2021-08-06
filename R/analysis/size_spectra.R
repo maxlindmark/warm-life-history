@@ -1,15 +1,15 @@
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # 2020.06.16: Max Lindmark
 #
-# Fit models of size spectra following Edwards (MEPS 2020)
+# Fit models to explore differences in size spectra slopes
 # 
 # A. Load libraries
 # 
 # B. Read data
 # 
-# C. Fit models of spectra by year using Andrew's model
+# C. Fit models of spectra by year following Edwards (MEPS 2020)
 #
-# D. Fit models of slopes and percentiles
+# D. Fit models to size spectra slopes
 #
 # E. Produce figures
 # 
@@ -78,6 +78,11 @@ p2 <- ggplot(df, aes(factor(length_group))) +
 
 p1/p2
 
+# Before we process data any further, save it because we will use it in this format
+# for analysing mean size (i.e. we need 1 row = 1 ind)
+
+size_df <- df
+
 # Now we want to process the data a bit further... Following Edwards sizeSpectra package
 # we want the data as follows:
 # Year 	SpecCode 	LngtClass 	Number 	LWa 	LWb 	bodyMass 	Biomass
@@ -120,7 +125,7 @@ df4 <- df3 %>%
          wmin = a*min_length_group_cm^b,     # Get min mass in bin
          wmax = a*max_length_group_cm^b) %>% # Get max mass in bin
   mutate(cpue_numbers = catch_n/n_nets_year, # Get numbers CPUE, divide by the previously create n_nets, which is # of unique net ID's in each area and year
-         cpue_biom = (catch_n*((wmin + wmax)/2))/n_nets) %>% # Get biomass CPUE, use mean of mass in size range
+         cpue_biom = (catch_n*((wmin + wmax)/2))/n_nets_year) %>% # Get biomass CPUE, use mean of mass in size range
   mutate(SpecCode = "Perch")
 
 # Test I get 1 unique row per size class, year and area
@@ -465,72 +470,98 @@ res = timeSerPlot(BT_spectra,
                   yTicksSmallInc = 0.05)
 
 
-
-# D. FIT MODELS OF SLOPES ==========================================================
-# Size spectrum slopes =============================================================
-
-# Mean centre year variable
+# D. FIT MODELS ====================================================================
+# Mean center year variable
 spectra <- spectra %>%
   mutate(Year_ct = Year - min(Year),
-         Year_ct = as.integer(Year_ct))
+         Year_ct = as.integer(Year_ct),
+         area2 = ifelse(area == "BT", "Warm", "Cold"))
 
-# Without interaction
-m1 <- brm(b ~ Year_ct + area + (1|Year_ct),
+# Difference in mean size spectrum slopes between area, year as random factor
+m1 <- brm(b ~ area2 + (1|Year_ct),
           family = gaussian(), data = spectra, iter = 4000, cores = 3, chains = 3,
           save_all_pars = TRUE,
           control = list(adapt_delta = 0.99))
-
-# With interaction
-m2 <- brm(b ~ Year_ct * area + (1|Year_ct),
-          family = gaussian(), data = spectra, iter = 4000, cores = 3, chains = 3,
-          save_all_pars = TRUE,
-          control = list(adapt_delta = 0.99))
-
-loo_m1 <- loo(m1)
-loo_m2 <- loo(m2, moment_match = TRUE)
-
-loo_compare(loo_m1, loo_m2)
 
 summary(m1)
 plot(m1)
 
-# Plot
-pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 
-p1 <- spectra %>%
-  ungroup() %>%
-  data_grid(Year_ct = seq_range(Year_ct, by = 1),
-            area = c("FM", "BT")) %>%
-  add_predicted_draws(m1, re_formula = NA) %>%
-  mutate(Year = Year_ct + min(spectra$Year)) %>% 
-  ggplot(aes(x = Year, y = b, color = area, fill = area)) +
-  stat_lineribbon(aes(y = .prediction), .width = c(.90, .50), alpha = 1/4) +
-  geom_point(data = spectra, alpha = 1, size = 3) +
-  scale_fill_manual(values = pal, labels = c("Warm", "Cold")) +
-  scale_color_manual(values = pal, labels = c("Warm", "Cold")) +
-  labs(color = "Area", fill = "Area",
-       x = "Year",
-       y = expression(paste("Size-spectrum slope ", italic((b))))) +
+# E. PRODUCE FIGURES ===============================================================
+pal <- brewer.pal(n = 6, name = "Paired")[c(2, 6)]
+pal2 <- brewer.pal(n = 6, name = "Paired")[c(2, 6)]
+pal2 <- alpha(pal2, alpha = 0.2)
+
+##### Plot predictions ============================================================
+p1 <- m1 %>%
+  spread_draws(b_Intercept, b_area2Warm) %>%
+  mutate("Warm" = b_Intercept + b_area2Warm) %>%
+  rename("Cold" = "b_Intercept") %>% 
+  pivot_longer(c("Warm", "Cold"), names_to = "area", values_to = c("b")) %>% 
+  ggplot(aes(x = area, y = b, fill = area)) +
+  coord_flip() +
+  stat_halfeye(position = position_nudge(x = .1, y = 0), alpha = 0.8) +
+  scale_fill_manual(values = pal2) +
+  geom_jitter(data = spectra, aes(x = area2, y = b, color = Year), width = 0.05,  
+              alpha = 0.8, size = 3, inherit.aes = FALSE) +
+  scale_color_viridis() +
+  labs(x = "Area",
+       y = expression(paste("Size-spectrum slope ", italic((b)))),
+       color = "Year") +
+  guides(fill = FALSE) +
   NULL
-
-pWord1 <- p1 + theme(text = element_text(size = 12), 
-                     legend.position = c(0.1, 0.9), 
-                     legend.title = element_text(size = 10),
-                     legend.text = element_text(size = 10))
-
-ggsave("figures/size_spectra_slopes.png", width = 6.5, height = 6.5, dpi = 600)
-
-
-# Size percentiles =================================================================
-#perc_dat <- 
   
-# df %>%
-#   group_by(Area, year) %>% 
-#   summarise(q95 = quantile(length_group, 0.95)) %>% 
-#   as.data.frame() %>% 
-#   ggplot(., aes(year, q95, color = Area)) + geom_point() + stat_smooth(method = "lm")
-# 
-# quantile(filter(df, Area == "BT")$length_group, c(0.5, 0.95, .999))
-# quantile(filter(df, Area == "FM")$length_group, c(0.5, 0.95, .999))
+pWord1 <- p1 + theme(text = element_text(size = 12), # 12 for word doc
+                    legend.title = element_text(size = 10),
+                    legend.text = element_text(size = 8), 
+                    legend.position = c(1, 0.001), 
+                    legend.justification = c(1, 0),
+                    legend.direction = "horizontal")
 
-# Skip for now, doesn't work well with size-groups...
+ggsave("figures/size_spec.png", width = 6.5, height = 6.5, dpi = 600)
+
+
+##### Model diagnostics ============================================================
+pal_diag <- rev(brewer.pal(n = 3, name = "Dark2"))
+
+# Chain convergence
+posterior <- as.array(m1)
+dimnames(posterior)
+
+d1 <- mcmc_trace(posterior,
+                 pars = c("b_Intercept", "b_area2Warm", "sd_Year_ct__Intercept", 
+                          "sigma", "Intercept"),
+                 facet_args = list(ncol = 3, strip.position = "left")) + 
+  theme(text = element_text(size = 12),
+        strip.text = element_text(size = 6),
+        legend.position = "top") + 
+  scale_color_manual(values = alpha(pal_diag, alpha = 0.8))
+
+# Resid vs fitted
+d2 <- spectra %>%
+  add_residual_draws(m1) %>%
+  ggplot(aes(x = .row, y = .residual)) +
+  stat_pointinterval(alpha = 0.5, size = 0.7) + 
+  theme(text = element_text(size = 12))
+
+# qq-plot
+d3 <- spectra %>%
+  add_residual_draws(m1) %>%
+  median_qi() %>%
+  ggplot(aes(sample = .residual)) +
+  geom_qq_line() +
+  geom_qq(alpha = 0.8) +
+  theme(text = element_text(size = 12))
+
+# Posterior predictive
+d4 <- pp_check(m1) + 
+  theme(text = element_text(size = 12),
+        legend.position = c(0.15, 0.95),
+        legend.background = element_rect(fill = NA)) + 
+  scale_color_manual(values = rev(pal_diag)) +
+  labs(color = "")
+
+d1 / (d2 / (d3 + d4)) + 
+  plot_annotation(tag_levels = 'A')
+
+ggsave("figures/supp/size_spec_diag.png", width = 6.5, height = 8.5, dpi = 600)
