@@ -219,6 +219,10 @@ dfm <- dfm %>% group_by(ID) %>% mutate(n = n()) %>% mutate(test = catch_age - n)
 # Remove these
 dfm <- dfm %>% filter(test == 1)
 
+# Create area 2 variable
+dfm <- dfm %>%
+  mutate(area2 = ifelse(area == "BT", "Warm", "Cold"))
+
 # Plot again
 dfm %>% 
   group_by(catch_age, catch_year, area) %>% 
@@ -274,109 +278,147 @@ dfm %>%
 # m1 ==============================================================================
 # With quadratic interaction
 
-m1a <- brm(bf(log_growth ~ log_length_ct*area + log_length_ct_sq*area + (1|birth_year/ID),
-              sigma ~ log_length_ct),
-          family = gaussian(), data = dfm, iter = 4000, cores = 3, chains = 3,
-          save_all_pars = TRUE)
-
-summary(m1a)
-plot(m1a)
-prior_summary(m1a)
+# m1 <- brm(bf(log_growth ~ log_length_ct*area2 + log_length_ct_sq*area2 + (1|birth_year/ID),
+#              sigma ~ log_length_ct),
+#           family = gaussian(), data = dfm, iter = 4000, cores = 3, chains = 3,
+#           save_all_pars = TRUE)
+# 
+# summary(m1)
+# plot(m1)
+# prior_summary(m1)
 
 # Save model object to not have to rerun it...
-#saveRDS(m1a, "output/growth_scaling/m1a.rds")
-#m1a <- readRDS("output/growth_scaling/m1a.rds")
+#saveRDS(m1, "output/growth_scaling/m1.rds")
+#m1 <- readRDS("output/growth_scaling/m1.rds")
 
 
-# m1b ==============================================================================
+# m2 ===============================================================================
 # No quadratic interaction
-m1b <- brm(bf(log_growth ~ log_length_ct*area + log_length_ct_sq + (1|birth_year/ID),
-              sigma ~ log_length_ct),
-          family = gaussian(), data = dfm, iter = 4000, cores = 3, chains = 3,
-          save_all_pars = TRUE)
-
-summary(m1b)
-plot(m1b)
-prior_summary(m1b)
-
-# Save model object to not have to rerun it...
-#saveRDS(m1b, "output/growth_scaling/m1b.rds")
-#m1b <- readRDS("output/growth_scaling/m1b.rds")
-
-
-# m2a ==============================================================================
-# Student model
-# With quadratic interaction
-
-m2a <- brm(bf(log_growth ~ log_length_ct*area + log_length_ct_sq*area + (1|birth_year/ID),
-              sigma ~ log_length_ct),
-          family = student(), data = dfm, iter = 4000, cores = 3, chains = 3,
-          save_all_pars = TRUE)
-
-summary(m2a)
-plot(m2a)
-prior_summary(m2a)
+# m2 <- brm(bf(log_growth ~ log_length_ct*area2 + log_length_ct_sq + (1|birth_year/ID),
+#              sigma ~ log_length_ct),
+#           family = gaussian(), data = dfm, iter = 4000, cores = 3, chains = 3,
+#           save_all_pars = TRUE)
+# 
+# summary(m2)
+# plot(m2)
+# prior_summary(m2)
 
 # Save model object to not have to rerun it...
-#saveRDS(m2a, "output/growth_scaling/m2a.rds")
-#m2a <- readRDS("output/growth_scaling/m2a.rds")
+#saveRDS(m2, "output/growth_scaling/m2.rds")
+#m2 <- readRDS("output/growth_scaling/m2.rds")
 
 
-# m2b ==============================================================================
-# Student model
-# No quadratic interaction
+# Non-linear models ================================================================
+# Due to non-optimal QQ-plots with the log-linear, despite adding quad terms etc. I
+# here instead fit a non-linear model, dummy coded as the VBGE model
 
-m2b <- brm(bf(log_growth ~ log_length_ct*area + log_length_ct_sq + (1|birth_year/ID),
-              sigma ~ log_length_ct),
-           family = student(), data = dfm, iter = 4000, cores = 3, chains = 3,
-           save_all_pars = TRUE)
+# Follow the method in VBGE and use dummy coding
+bt <- filter(dfm, area == "BT")
+fm <- filter(dfm, area == "FM")
 
-summary(m2b)
-plot(m2b)
-prior_summary(m2b)
+dfm_dummy <- data.frame(rbind(cbind(bt, areaBT=1, areaFM=0), cbind(fm, areaBT=0, areaFM=1)))
+
+# Plot non-linear relationship
+ggplot(dfm_dummy, aes(length, growth, color = area2)) +
+  geom_point()
+
+hist(rnorm(n = 10000, mean = 500, sd = 100))
+hist(rnorm(n = 10000, mean = -1.5, sd = 1))
+
+# m3 ===============================================================================
+# m3 has all parameters in common 
+
+# Define priors
+prior3 <-
+  prior(normal(500, 100), nlpar = "b1BT") +
+  prior(normal(500, 100), nlpar = "b1FM") +
+  prior(normal(-1.5, 1), nlpar = "b2BT") +
+  prior(normal(-1.5, 1), nlpar = "b2FM")
+
+m3 <- brm(bf(growth ~ areaBT*b1BT*length^b2BT + areaFM*b1FM*length^b2FM, 
+             b1BT ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
+             b1FM ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
+             b2BT + b2FM ~ 1,
+             sigma ~ length, nl = TRUE),
+          data = dfm_dummy, prior = prior3, iter = 4000, cores = 3, chains = 3,
+          control = list(adapt_delta = 0.99))
+
+# summary(m3)
+# plot(m3)
+# prior_summary(m3)
 
 # Save model object to not have to rerun it...
-#saveRDS(m2b, "output/growth_scaling/m2b.rds")
-#m2b <- readRDS("output/growth_scaling/m2b.rds")
+saveRDS(m3, "output/growth_scaling/m3.rds")
+#m3 <- readRDS("output/growth_scaling/m3.rds")
+
+# m4 ===============================================================================
+# m4 has only b2 in common 
+
+# Define priors
+prior4 <-
+  prior(normal(500, 100), nlpar = "b1") +
+  prior(normal(-1.5, 1), nlpar = "b2BT") +
+  prior(normal(-1.5, 1), nlpar = "b2FM")
+
+m3 <- brm(bf(growth ~ areaBT*b1*length^b2BT + areaFM*b1*length^b2FM, 
+             b1 ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
+             b2BT + b2FM ~ 1,
+             sigma ~ length, nl = TRUE),
+          data = dfm_dummy, prior = prior4, iter = 4000, cores = 3, chains = 3,
+          control = list(adapt_delta = 0.99))
+
+# summary(m4)
+# plot(m4)
+# prior_summary(m4)
+
+# Save model object to not have to rerun it...
+saveRDS(m4, "output/growth_scaling/m4.rds")
+#m4 <- readRDS("output/growth_scaling/m4.rds")
 
 
 # D. COMPARE MODELS ================================================================
 # Compare models: https://mc-stan.org/loo/articles/loo2-example.html
 # Expected log pointwise predictive density
 
-loo_m1a <- loo(m1a)
-loo_m1b <- loo(m1b)
-loo_m2a <- loo(m2a)
-loo_m2b <- loo(m2b)
-
-loo_compare(loo_m1a, loo_m1b, loo_m2a, loo_m2b)
-# > loo_compare(loo_m1a, loo_m1b, loo_m2a, loo_m2b)
+# loo_m1 <- loo(m1)
+# loo_m2 <- loo(m2)
+# loo_compare(loo_m1, loo_m2)
 # elpd_diff se_diff
-# m2b  0.0       0.0   
-# m2a -1.0       0.7   
-# m1b -6.0       6.7   
-# m1a -9.2       6.7   
+# m2  0.0       0.0   
+# m1 -1.4       0.8 
 
-summary(m2b)
+loo_m3 <- loo(m3)
+loo_m4 <- loo(m4)
+
+loo_compare(loo_m3, loo_m4)
+
 
 
 # E. PRODUCE FIGURES ===============================================================
-# Plot prediction and data
-pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
+##### Plot predictions =============================================================
+pal <- brewer.pal(n = 6, name = "Paired")[c(2, 6)]
+
+as.data.frame(fixef(m2)) # Extract "fixed" effects from m2 for plotting the equation 
 
 p1 <- dfm %>%
   ungroup() %>%
   data_grid(log_length_ct = seq_range(log_length_ct, n = 101),
-            area = c("FM", "BT")) %>%
+            area2 = c("Warm", "Cold")) %>%
   mutate(log_length_ct_sq = log_length_ct*log_length_ct) %>% 
-  add_predicted_draws(m2b, re_formula = NA) %>%
+  add_predicted_draws(m2, re_formula = NA) %>%
   mutate(log_length = log_length_ct + mean(dfm$log_length)) %>% 
-  ggplot(aes(x = log_length, y = log_growth, color = area, fill = area)) +
+  ggplot(aes(x = log_length, y = log_growth, color = area2, fill = area2)) +
   stat_lineribbon(aes(y = .prediction), .width = c(.90, .50), alpha = 1/4) +
   geom_point(data = dfm, alpha = 0.1, size = 0.8) +
-  scale_fill_manual(values = pal, labels = c("Warm", "Cold")) +
-  scale_color_manual(values = pal, labels = c("Warm", "Cold")) +
-  labs(y = "log(growth)", x = "log(length)", fill = "Area", colour = "Area") +
+  scale_fill_manual(values = pal) +
+  scale_color_manual(values = pal) +
+  labs(y = expression(paste("log(growth[%", yr^-1, "])")),
+       x = "log(length [cm])", fill = "Area", colour = "Area") +
+  annotate("text", 2.2, -.1, label = paste("n=", nrow(dfm), sep = ""), size = 3.5) +
+  annotate("text", 2.2, 0.1, size = 3.5, color = pal[2],
+           label = expression(paste("y=3.21-1.32×log_length-0.44×", log_length^2))) + # Cold
+  annotate("text", 2.2, 0.3, size = 3.5, color = pal[1],
+           label = expression(paste("y=3.44-1.14×log_length-0.44×", log_length^2))) + # Warm
   NULL
 
 pWord1 <- p1 + theme(text = element_text(size = 12), 
@@ -384,46 +426,72 @@ pWord1 <- p1 + theme(text = element_text(size = 12),
                      legend.title = element_text(size = 10),
                      legend.text = element_text(size = 10))
 
-ggsave("figures/growth_scaling/growth_pred.png", width = 6.5, height = 6.5, dpi = 600)
+ggsave("figures/growth_pred.png", width = 6.5, height = 6.5, dpi = 600)
 
-# Posterior predictive checks
-pp_check(m2b) + 
-  theme(text = element_text(size = 12),
-        legend.position = c(0.9, 0.9), 
-        legend.title = element_text(size = 12),
-        legend.text = element_text(size = 12))
-ggsave("figures/supp/growth_ppc.png", width = 6.5, height = 6.5, dpi = 600)
 
-# Posterior predictive checks: summary statistics median
-pp_check(m2b, type = "stat", stat = 'median', nsamples = NULL) + 
-  theme(text = element_text(size = 12),
-        legend.position = c(0.9, 0.9), 
-        legend.title = element_text(size = 12),
-        legend.text = element_text(size = 12))
-ggsave("figures/supp/growth_sumstat_median_ppc.png", width = 6.5, height = 6.5, dpi = 600)
+# Dummy coded model:
+# dfm_dummy %>%
+#   ungroup() %>%
+#   data_grid(length = seq_range(length, n = 101),
+#             area2 = c("Warm", "Cold")) %>%
+#   mutate(areaFM = ifelse(area2 == "Cold", 1, 0),
+#          areaBT = ifelse(area2 == "Warm", 1, 0)) %>%
+#   add_predicted_draws(m5, re_formula = NA) %>%
+#   ggplot(aes(x = length, y = growth, color = area2, fill = area2)) +
+#   stat_lineribbon(aes(y = .prediction), .width = c(.90, .50), alpha = 1/4) +
+#   geom_point(data = dfm_dummy, alpha = 0.1, size = 0.8) +
+#   scale_fill_manual(values = pal) +
+#   scale_color_manual(values = pal) +
+#   theme(text = element_text(size = 12),
+#         legend.position = c(0.9, 0.9),
+#         legend.title = element_text(size = 10),
+#         legend.text = element_text(size = 10))
 
-# Posterior predictive checks: summary statistics mean
-pp_check(m2b, type = "stat", stat = 'mean', nsamples = NULL) + 
-  theme(text = element_text(size = 12),
-        legend.position = c(0.9, 0.9), 
-        legend.title = element_text(size = 12),
-        legend.text = element_text(size = 12))
-ggsave("figures/supp/growth_sumstat_mean_ppc.png", width = 6.5, height = 6.5, dpi = 600)
+##### Model diagnostics ============================================================
+pal_diag <- rev(brewer.pal(n = 3, name = "Dark2"))
 
 # Chain convergence
-posterior <- as.array(m2b)
+posterior <- as.array(m2)
 dimnames(posterior)
 
-color_scheme_set("mix-blue-red")
-mcmc_trace(posterior,
-           pars = c("b_Intercept", "b_sigma_Intercept", "b_log_length_ct", "b_areaFM", 
-                    "b_log_length_ct_sq", "b_log_length_ct:areaFM", "b_sigma_log_length_ct"),
-           facet_args = list(ncol = 2, strip.position = "left")) + 
+d1 <- mcmc_trace(posterior,
+                 pars = c("b_Intercept", "b_sigma_Intercept", "b_log_length_ct", 
+                          "b_area2Warm", "b_log_length_ct_sq", "b_log_length_ct:area2Warm",
+                          "b_sigma_log_length_ct", "sd_birth_year__Intercept", 
+                          "sd_birth_year:ID__Intercept", "Intercept", "Intercept_sigma"),
+                 facet_args = list(ncol = 3, strip.position = "left")) + 
   theme(text = element_text(size = 12),
-        #legend.position = c(0.7, 0.1), 
-        legend.title = element_text(size = 12),
-        legend.text = element_text(size = 12))
+        strip.text = element_text(size = 3),
+        legend.position = "top") + 
+  scale_color_manual(values = alpha(pal_diag, alpha = 0.8))
 
-ggsave("figures/supp/growth_chain_convergence.png", width = 7.5, height = 7.5, dpi = 600)
+# Resid vs fitted
+# The following two plots exhaust the memory, following this helps:
+# https://stackoverflow.com/questions/51248293/error-vector-memory-exhausted-limit-reached-r-3-5-0-macos
+d2 <- dfm %>%
+  add_residual_draws(m2) %>%
+  ggplot(aes(x = .row, y = .residual)) +
+  stat_pointinterval(alpha = 0.5, size = 0.7) + 
+  theme(text = element_text(size = 12))
 
+# qq-plot
+d3 <- dfm %>%
+  add_residual_draws(m2) %>%
+  median_qi() %>%
+  ggplot(aes(sample = .residual)) +
+  geom_qq_line() +
+  geom_qq(alpha = 0.8) +
+  theme(text = element_text(size = 12))
 
+# Posterior predictive
+d4 <- pp_check(m2) + 
+  theme(text = element_text(size = 12),
+        legend.position = c(0.15, 0.95),
+        legend.background = element_rect(fill = NA)) + 
+  scale_color_manual(values = rev(pal_diag)) +
+  labs(color = "")
+
+d1 / (d2 / (d3 + d4)) +
+  plot_annotation(tag_levels = 'A')
+
+ggsave("figures/supp/growth_diag.png", width = 6.5, height = 8.5, dpi = 600)
