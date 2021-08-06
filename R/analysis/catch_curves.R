@@ -9,9 +9,7 @@
 # 
 # C. Fit models
 # 
-# D. Compare models
-# 
-# E. Produce figures
+# D. Produce figures
 # 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -103,36 +101,56 @@ ggplot(df4, aes(factor(age), log(cpue_numbers), color = factor(year))) +
   theme(aspect.ratio = 1)
 
 # Let's use age 3 and older
-ggplot(df4, aes(age, log(cpue_numbers), color = factor(year))) + 
-  stat_smooth(se = FALSE, method = "lm") +
+ggplot(df4, aes(factor(age), log(cpue_numbers), color = factor(year))) + 
   geom_point() +
   facet_wrap(~ area) +
   scale_color_viridis(discrete = TRUE) + 
   coord_cartesian(expand = 0) + 
   theme(aspect.ratio = 1)
 
+# Plot total catch
+df2 %>%
+  group_by(Area, year) %>%
+  summarize(tot_catch = sum(catch_n)) %>% 
+  ggplot(., aes(year, tot_catch)) + geom_bar(stat = "identity") +
+  facet_wrap(~ Area)
+
+# Plot cpue
+df4 %>%
+  group_by(area, year) %>%
+  ggplot(., aes(year, cpue_numbers)) + geom_bar(stat = "identity") +
+  facet_wrap(~ area)
+
 # Filter and rename data
-d <- df4 %>% filter(age > 2)
+# d <- df4 %>% filter(age > 2)
+
+# Something strange in BT 1996, station is wrong, hence netID, total nets and thus CPUE
+# Removing it for now!
+d <- df4 %>%
+  filter(age > 2) %>% 
+  mutate(keep = ifelse(area == "BT" & year == 1996, "N", "Y")) %>% 
+  filter(keep == "Y")
 
 
 # C. FIT MODELS ====================================================================
 # Fitting models of log catch ~ age with interactive or additive effects of area, 
 # using catch year as a random effect
 
-# Centre year variable
+# Center year variable and rename area
 d <- d %>%
   mutate(year_ct = year - min(year),
          year_ct = as.integer(year_ct),
-         log_cpue = log(cpue_numbers))
+         log_cpue = log(cpue_numbers),
+         area2 = ifelse(area == "BT", "Warm", "Cold"))
 
 # Without interaction
-m1 <- brm(log_cpue ~ age + area + (1|year_ct),
+m1 <- brm(log_cpue ~ age + area2 + (1 + age|year_ct),
           family = gaussian(), data = d, iter = 4000, cores = 3, chains = 3,
           save_all_pars = TRUE,
           control = list(adapt_delta = 0.99))
 
 # With interaction
-m2 <- brm(log_cpue ~ age * area + (1|year_ct),
+m2 <- brm(log_cpue ~ age * area2 + (1 + age|year_ct),
           family = gaussian(), data = d, iter = 4000, cores = 3, chains = 3,
           save_all_pars = TRUE,
           control = list(adapt_delta = 0.99))
@@ -145,22 +163,35 @@ loo_compare(loo_m1, loo_m2)
 summary(m2)
 plot(m2)
 
-# Plot
+
+# D. PRODUCE FIGURES ===============================================================
+##### Plot Predictions =============================================================
+
 pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
+
+#as.data.frame(fixef(m1))
+as.data.frame(fixef(m2)) # Extract "fixed" effects from m2 for plotting the equation 
 
 p1 <- d %>%
   ungroup() %>%
   data_grid(age = seq_range(age, by = 1),
-            area = c("FM", "BT")) %>%
-  add_predicted_draws(m1, re_formula = NA) %>%
-  ggplot(aes(factor(age), y = log_cpue, color = area, fill = area)) +
-  stat_lineribbon(aes(y = .prediction), .width = c(.90, .50), alpha = 1/4) +
-  geom_jitter(data = d, alpha = 1, size = 3, width = 0.2, height = 0) +
-  scale_fill_manual(values = pal, labels = c("Warm", "Cold")) +
-  scale_color_manual(values = pal, labels = c("Warm", "Cold")) +
+            area2 = c("Warm", "Cold")) %>%
+  add_predicted_draws(m2, re_formula = NA) %>%
+  ggplot(aes(factor(age), y = log_cpue, color = area2, fill = area2)) +
+  stat_lineribbon(aes(y = .prediction), .width = c(.90, .50), alpha = 0.25) +
+  geom_jitter(data = d, alpha = 0.9, size = 3, width = 0.2, height = 0, shape = 21, color = "white") +
+  stat_lineribbon(aes(y = .prediction), .width = 0, alpha = 0.8) +
+  scale_fill_manual(values = rev(pal)) +
+  scale_color_manual(values = rev(pal)) +
   labs(color = "Area", fill = "Area",
        x = "Age",
        y = "Log(CPUE)") +
+  guides(fill = guide_legend(override.aes = list(alpha = 0.5))) + 
+  # Using m2
+  annotate("text", 2.2, -1, size = 3.5, color = pal[2],
+           label = expression(paste("y=6.56-0.64×age; ", italic(Z), "=0.65 [0.59, 0.70]", sep = ""))) + # Cold
+  annotate("text", 2.2, -1.25, size = 3.5, color = pal[1],
+           label = expression(paste("y=5.60-0.75×age; ", italic(Z), "=0.75 [0.63, 0.86]", sep = ""))) + # Warm
   NULL
 
 pWord1 <- p1 + theme(text = element_text(size = 12), 
@@ -168,9 +199,51 @@ pWord1 <- p1 + theme(text = element_text(size = 12),
                      legend.title = element_text(size = 10),
                      legend.text = element_text(size = 10))
 
-pWord1
-
-ggsave("figures/size_spectra/catch_curve.png", width = 6.5, height = 6.5, dpi = 600)
+ggsave("figures/catch_curve.png", width = 6.5, height = 6.5, dpi = 600)
 
 
+##### Model diagnostics ============================================================
+pal_diag <- rev(brewer.pal(n = 3, name = "Dark2"))
 
+# Chain convergence
+posterior <- as.array(m2)
+dimnames(posterior)
+
+d1 <- mcmc_trace(posterior,
+                 pars = c("b_Intercept", "b_age", "b_area2Warm", 
+                          "b_age:area2Warm", "sd_year_ct__Intercept", "sd_year_ct__age",
+                          "cor_year_ct__Intercept__age", "sigma", "Intercept"),
+                 facet_args = list(ncol = 3, strip.position = "left")) + 
+  theme(text = element_text(size = 12),
+        strip.text = element_text(size = 6),
+        legend.position = "top") + 
+  scale_color_manual(values = alpha(pal_diag, alpha = 0.8))
+
+# Resid vs fitted
+d2 <- d %>%
+  add_residual_draws(m2) %>%
+  ggplot(aes(x = .row, y = .residual)) +
+  stat_pointinterval(alpha = 0.5, size = 0.7) + 
+  theme(text = element_text(size = 12))
+
+# qq-plot
+d3 <- d %>%
+  add_residual_draws(m2) %>%
+  median_qi() %>%
+  ggplot(aes(sample = .residual)) +
+  geom_qq_line() +
+  geom_qq(alpha = 0.8) +
+  theme(text = element_text(size = 12))
+
+# Posterior predictive
+d4 <- pp_check(m2) + 
+  theme(text = element_text(size = 12),
+        legend.position = c(0.15, 0.95),
+        legend.background = element_rect(fill = NA)) + 
+  scale_color_manual(values = rev(pal_diag)) +
+  labs(color = "")
+
+d1 / (d2 / (d3 + d4)) + 
+  plot_annotation(tag_levels = 'A')
+
+ggsave("figures/supp/catch_curve_diag.png", width = 6.5, height = 8.5, dpi = 600)

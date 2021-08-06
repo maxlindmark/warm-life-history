@@ -14,12 +14,6 @@
 # 
 # D. Merge areas and standardize length codes!
 # 
-# TO DO: REMOVE HASHTAGS IF WE DECIDE TO USE FULL AREAS...
-# 
-# The data contains two different length group standards std 2 (2.5 cm intervals) and
-# std 3 (1 cm intervals). I need to rewrite std 3 to std 2 to get comparable data. 
-# See the instruction manual for how they are defined ("Standardisering av längdgrupper")
-# 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 # A. LOAD LIBRARIES ================================================================
@@ -521,6 +515,8 @@ catch_full <- catch_full %>%
   dplyr::rename(length_group = new_length_group)
 
 # Insert netID
+sort(unique(catch_full$Station))
+
 catch_full$netID <- paste(catch_full$Area, catch_full$year, catch_full$Station, sep = ".")
 
 catch_full

@@ -7,7 +7,11 @@
 # 
 # B. Read data
 # 
-# C. Create age-length key and assign ages to catch data 
+# C. Create year- and area-specific ALK
+#
+# D. Create area-specific ALK
+# 
+# E. Age the catch data, save
 # 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -22,7 +26,7 @@ library(patchwork)
 library(FSA)
 
 
-# B. LOAD LIBRARIES ================================================================
+# B. READ DATA =====================================================================
 length_at_age <- read.csv("data/size_at_age_BT_FM_1970-2004.csv", sep = ";")
 
 # Remove gear 32, see vbge script
@@ -67,8 +71,6 @@ length_at_age %>%
   facet_wrap(~ catch_year) +
   theme_classic()
 
-# Check if NA age...
-
 # Now we need to use the same length categories as in the catch data
 catch_data <- read.csv("data/catch_BT_FM_1987-2003.csv")
 
@@ -80,6 +82,8 @@ len_cats <- sort(unique(length_at_age$len_cat))
 
 ggplot(length_at_age, aes(len_cat, length)) + geom_point()
 
+
+# C. YEAR-AND AREA-SPECIFIC ALK ====================================================
 # Once the length category variable has been added to the age sample data frame,
 # table() is used to construct the summary contingency table of numbers of fish
 # in each combined length and age category.
@@ -92,68 +96,126 @@ ggplot(length_at_age, aes(len_cat, length)) + geom_point()
 # The resulting row-proportions table is the actual age-length key determined from
 # the age sample and is ready to be applied to the length sample.
 
-# We need to make one of these for each year in the catch data...
+# We need to make one of these for each year and area in the catch data...
+# bt_raw_list <- list()
+# bt_key_list <- list()
+# 
+# fm_raw_list <- list()
+# fm_key_list <- list()
+# 
+# for(i in sort(unique(length_at_age$catch_year))) {
+#   
+#   bt_temp_df <- length_at_age %>% filter(catch_year == i & area == "BT")
+#   fm_temp_df <- length_at_age %>% filter(catch_year == i & area == "FM")
+# 
+#   # Create age-length key
+#   bt_alk_raw <- xtabs(~len_cat + back_calc_age, data = bt_temp_df)
+#   fm_alk_raw <- xtabs(~len_cat + back_calc_age, data = fm_temp_df)
+#   
+#   bt_alk <- prop.table(bt_alk_raw, margin = 1)
+#   fm_alk <- prop.table(fm_alk_raw, margin = 1)
+#   
+#   index <- i - min(unique(length_at_age$catch_year)) + 1 
+#   
+#   bt_raw_list[[index]] <- bt_alk_raw
+#   fm_raw_list[[index]] <- fm_alk_raw
+#   
+#   bt_key_list[[index]] <- bt_alk
+#   fm_key_list[[index]] <- fm_alk
+#   
+# }
+# 
+# names(bt_raw_list) <- sort(unique(length_at_age$catch_year))
+# names(fm_raw_list) <- sort(unique(length_at_age$catch_year))
+# 
+# names(bt_key_list) <- sort(unique(length_at_age$catch_year))
+# names(fm_key_list) <- sort(unique(length_at_age$catch_year))
+# 
+# str(bt_raw_list)
+# str(fm_raw_list)
+# 
+# str(bt_key_list)
+# str(fm_key_list)
+# 
+# 
+# # Now write a for loop that ages the catch data by each year, using the year- and 
+# # area-specific age length key
+# 
+# # Store annual data frames with aged catch data from the year-specific ALK
+# bt_aged_catch_list <- list()
+# fm_aged_catch_list <- list()
+# 
+# for(i in sort(unique(catch_data$year))) {
+#   
+#   # Subset years & area
+#   bt_temp_catch <- catch_data %>% filter(year == i & Area == "BT")
+#   fm_temp_catch <- catch_data %>% filter(year == i & Area == "FM")
+#   
+#   bt_temp_key <- bt_key_list[i - min(catch_data$year) + 1][[1]]
+#   fm_temp_key <- fm_key_list[i - min(catch_data$year) + 1][[1]]
+#   
+#   bt_temp_catch <- alkIndivAge(bt_temp_key, ~length_group, data = bt_temp_catch)
+#   fm_temp_catch <- alkIndivAge(fm_temp_key, ~length_group, data = fm_temp_catch)
+# 
+#   index <- i - min(unique(length_at_age$catch_year)) + 1 
+#   
+#   bt_aged_catch_list[[index]] <- bt_temp_catch
+#   fm_aged_catch_list[[index]] <- fm_temp_catch
+#   
+# }
+# 
+# bt_aged_catch <- dplyr::bind_rows(bt_aged_catch_list)
+# fm_aged_catch <- dplyr::bind_rows(fm_aged_catch_list)
+# 
+# sort(unique(bt_aged_catch$year))
+# sort(unique(fm_aged_catch$year))
+# 
+# # Combine into single data frame
+# 
+# aged_catch <- rbind(bt_aged_catch, fm_aged_catch)
 
-rb_raw_list <- list()
-rb_key_list <- list()
-temp_df <- data.frame()
 
-for(i in sort(unique(length_at_age$catch_year))) {
-  
-  temp_df <- length_at_age %>% filter(catch_year == i)
+# D. AREA-SPECIFIC ALK =============================================================
 
-  # rb_raw <- with(temp_df, table(len_cat, back_calc_age))
-  # rb_key <- prop.table(rb_raw, margin = 1)
+  bt_temp_df <- length_at_age %>% filter(area == "BT")
+  fm_temp_df <- length_at_age %>% filter(area == "FM")
   
   # Create age-length key
-  alk_raw <- xtabs(~len_cat + back_calc_age, data = temp_df)
-  alk <- prop.table(alk_raw, margin = 1)
+  bt_alk_raw <- xtabs(~len_cat + back_calc_age, data = bt_temp_df)
+  fm_alk_raw <- xtabs(~len_cat + back_calc_age, data = fm_temp_df)
   
-  index <- i - min(unique(length_at_age$catch_year)) + 1 
+  bt_alk <- prop.table(bt_alk_raw, margin = 1)
+  fm_alk <- prop.table(fm_alk_raw, margin = 1)
   
-  rb_raw_list[[index]] <- alk_raw
-  rb_key_list[[index]] <- alk
+# Now age the catch data by each area using the area-specific age length key
+  # area
+  bt_catch <- catch_data %>% filter(Area == "BT")
+  fm_catch <- catch_data %>% filter(Area == "FM")
   
-}
-
-names(rb_raw_list) <- sort(unique(length_at_age$catch_year))
-names(rb_key_list) <- sort(unique(length_at_age$catch_year))
-
-str(rb_raw_list)
-str(rb_key_list)
-
-
-# Now write a for loop that ages the catch data by each year, using the year-specific 
-# age length key
-
-# Store annual data frames with aged catch data from the year-specific ALK
-aged_catch_dat <- list()
-
-for(i in sort(unique(catch_data$year))) {
+  bt_aged_catch <- alkIndivAge(bt_alk, ~length_group, data = bt_catch)
+  fm_aged_catch <- alkIndivAge(fm_alk, ~length_group, data = fm_catch)
   
-  # Subset years
-  temp_catch <- catch_data %>% filter(year == i)
-  temp_rb_key <- rb_key_list[i - min(catch_data$year) + 1][[1]]
-  
-  temp_catch <- alkIndivAge(temp_rb_key, ~length_group, data = temp_catch)
+# Combine into single data frame
+aged_catch <- rbind(bt_aged_catch, fm_aged_catch)
 
-  index <- i - min(unique(length_at_age$catch_year)) + 1 
-  
-  aged_catch_dat[[index]] <- temp_catch
-  
-}
 
-aged_catch <- dplyr::bind_rows(aged_catch_dat)
-
-sort(unique(aged_catch$year))
-
-ggplot(aged_catch, aes(length_group, fill = factor(age))) +
+# E. PLOT AND SAVE =================================================================
+aged_catch %>% 
+  mutate(area2 = ifelse(Area == "BT", "Warm", "Cold")) %>% 
+  ggplot(., aes(length_group, fill = factor(age))) +
   geom_histogram(binwidth = 1, position = "stack") + 
-  facet_wrap(~ Area, scales = "free") + 
-  scale_fill_brewer(palette = "Set1")
+  facet_wrap(~ area2, scales = "free") + 
+  scale_fill_brewer(palette = "Set1") + 
+  theme(text = element_text(size = 12),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 8),
+        aspect.ratio = 1) + 
+  coord_cartesian(expand = 0) + 
+  labs(fill = "Age",
+       x = "Length group",
+       y = "Count")
+  
+ggsave("figures/supp/age_by_length.png", width = 6.5, height = 6.5, dpi = 600)
 
 # Save data frame for catch curve analysis
 write.csv(aged_catch, "data/aged_catch_BT_FM_1987-2003.csv", row.names = FALSE)
-
-
-# 1 row 1 ind in catch data? Check data cleaning script!
