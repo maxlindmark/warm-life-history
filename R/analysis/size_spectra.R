@@ -31,6 +31,7 @@ library(tidylog)
 library(tidybayes)
 library(RColorBrewer)
 library(modelr)
+library(viridis)
 
 # other attached packages:
 # [1] sizeSpectra_1.0.0.0 patchwork_1.0.1     RColorBrewer_1.1-2  tidylog_1.0.2       forcats_0.5.0       stringr_1.4.0      
@@ -174,7 +175,7 @@ p4 <- ggplot(df4, aes(factor(round(wmin, digits = 3)), cpue_biom)) +
 p3/p4
 
 
-# C. FIT MODELS ====================================================================
+# C. FIT SIZE SPECTRUM SLOPE MODELS ================================================
 # Test with my data
 dataBintest <- df4 %>% rename("Year" = "year",
                               "Number" = "cpue_numbers")
@@ -473,55 +474,132 @@ res = timeSerPlot(BT_spectra,
 # D. FIT MODELS ====================================================================
 # Mean center year variable
 spectra <- spectra %>%
-  mutate(Year_ct = Year - min(Year),
-         Year_ct = as.integer(Year_ct),
-         area2 = ifelse(area == "BT", "Warm", "Cold"))
+  mutate(area2 = ifelse(area == "BT", "Warm", "Cold"),
+         Year_ct = as.integer(Year - min(Year)), 
+         area2 = as.factor(area2))
 
-# Difference in mean size spectrum slopes between area, year as random factor
-m1 <- brm(b ~ area2 + (1|Year_ct),
+# https://stats.stackexchange.com/questions/352772/what-do-blank-cells-mean-in-the-output-of-prior-summary-in-the-brms-package
+# > prior_summary(m1)
+
+# https://vasishth.github.io/Freq_CogSci/from-the-paired-t-test-to-the-linear-mixed-model.html
+# No year effect
+prior0 <-
+  prior(normal(3, 10), class = "b", coef = area2Cold) +
+  prior(normal(3, 10), class = "b", coef = area2Warm) +
+  prior(student_t(3, 0, 2.5), class = "sigma")
+
+m0 <- brm(b ~ -1 + area2,
           family = gaussian(), data = spectra, iter = 4000, cores = 3, chains = 3,
           save_all_pars = TRUE,
-          control = list(adapt_delta = 0.99))
+          prior = prior0
+          )
+
+summary(m0)
+plot(m0)
+
+# Add year as predictor
+prior1 <-
+  prior(normal(3, 10), class = "b", coef = area2Cold) +
+  prior(normal(3, 10), class = "b", coef = area2Warm) +
+  prior(normal(0, 10), class = "b", coef = Year_ct) +
+  prior(student_t(3, 0, 2.5), class = "sigma")
+
+m1 <- brm(
+  b ~ - 1 + area2 + Year_ct,
+  family = gaussian(), data = spectra, iter = 4000, cores = 3, chains = 3,
+  save_all_pars = TRUE,
+  prior = prior1
+  )
 
 summary(m1)
 plot(m1)
 
+# Interaction between year and area
+prior2 <-
+  prior(normal(3, 10), class = "b", coef = area2Cold) +
+  prior(normal(3, 10), class = "b", coef = area2Warm) +
+  prior(normal(0, 10), class = "b", coef = area2Warm:Year_ct) +
+  prior(normal(0, 10), class = "b", coef = Year_ct) +
+  prior(student_t(3, 0, 2.5), class = "sigma")
+
+m2 <- brm(
+  b ~ - 1 + area2*Year_ct,
+  family = gaussian(), data = spectra, iter = 4000, cores = 3, chains = 3,
+  save_all_pars = TRUE,
+  prior = prior2
+  )
+
+summary(m2)
+plot(m2)
+
+loo_m0 <- loo(m0, moment_match = TRUE)
+loo_m1 <- loo(m1, moment_match = TRUE)
+loo_m2 <- loo(m2, moment_match = TRUE)
+
+loo_compare(loo_m0, loo_m1, loo_m2)
+# elpd_diff se_diff
+# m1  0.0       0.0   
+# m2 -1.3       0.4   
+# m0 -8.8       4.2
+
 
 # E. PRODUCE FIGURES ===============================================================
-pal <- brewer.pal(n = 6, name = "Paired")[c(2, 6)]
-pal2 <- brewer.pal(n = 6, name = "Paired")[c(2, 6)]
-pal2 <- alpha(pal2, alpha = 0.2)
+pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 
 ##### Plot predictions ============================================================
-p1 <- m1 %>%
-  spread_draws(b_Intercept, b_area2Warm) %>%
-  mutate("Warm" = b_Intercept + b_area2Warm) %>%
-  rename("Cold" = "b_Intercept") %>% 
-  pivot_longer(c("Warm", "Cold"), names_to = "area", values_to = c("b")) %>% 
-  ggplot(aes(x = area, y = b, fill = area)) +
-  coord_flip() +
-  stat_halfeye(position = position_nudge(x = .1, y = 0), alpha = 0.8) +
-  scale_fill_manual(values = pal2) +
-  geom_jitter(data = spectra, aes(x = area2, y = b, color = Year), width = 0.05,  
-              alpha = 0.8, size = 3, inherit.aes = FALSE) +
-  scale_color_viridis() +
-  labs(x = "Area",
-       y = expression(paste("Size-spectrum slope ", italic((b)))),
-       color = "Year") +
-  guides(fill = FALSE) +
+as.data.frame(fixef(m1)) # Extract "fixed" effects from m2 for plotting the equation 
+
+spectra %>%
+  ggplot(aes(factor(Year), y = b, color = area2, fill = area2)) +
+  geom_point(data = spectra, alpha = 0.4, size = 3, shape = 21, color = "white",
+             position = position_dodge(width = 0.4)) +
+  geom_errorbar(data = spectra, aes(x = factor(Year), ymin = confMin, ymax = confMax),
+                alpha = 0.4, size = 1, width = 0.4, position = position_dodge(width = 0.4))
+
+spectra %>%
+  ggplot(aes(factor(Year), y = b, color = area2, fill = area2)) +
+  geom_point(data = spectra, alpha = 0.4, size = 3, shape = 21, color = "white") +
+  geom_errorbar(data = spectra, aes(x = factor(Year), ymin = confMin, ymax = confMax),
+                alpha = 0.4, size = 1, width = 0.4)
+
+p1 <- spectra %>%
+  ungroup() %>%
+  data_grid(Year_ct = seq_range(Year_ct, by = 1),
+            area2 = c("Warm", "Cold")) %>%
+  mutate(Year = Year_ct + min(spectra$Year)) %>% 
+  add_predicted_draws(m1, re_formula = NA) %>%
+  ggplot(aes(factor(Year), y = b, color = area2, fill = area2, group = area2)) +
+  stat_lineribbon(aes(y = .prediction), .width = c(.90), alpha = 0.2) +
+  geom_point(data = spectra, alpha = 0.6, size = 3, shape = 21, color = "white",
+             position = position_dodge(width = 0.5)) +
+  geom_errorbar(data = spectra, aes(x = factor(Year), ymin = confMin, ymax = confMax,
+                                    color = area2, group = area2),
+                alpha = 0.25, size = 1, position = position_dodge(width = 0.5), width = 0) +
+  stat_lineribbon(aes(y = .prediction), .width = c(.0), alpha = 0.8) +
+  scale_fill_manual(values = rev(pal)) +
+  scale_color_manual(values = rev(pal)) +
+  labs(color = "Area", fill = "Area", x = "Year",
+       y = expression(paste("Size-spectrum slope ", italic((b))))) +
+  guides(color = guide_legend(override.aes = list(linetype = 0, size = 2, shape = 16, alpha = 0.5,
+                                                  color = rev(pal), fill = NA))) +
+  annotate("text", 15, -4.5, size = 3.5, color = pal[2],
+           label = "y=-3.50 + 0.08×year") + # Cold
+  annotate("text", 15, -4.6, size = 3.5, color = pal[1],
+           label = "y=-3.12 + 0.08×year") + # Warm
   NULL
   
-pWord1 <- p1 + theme(text = element_text(size = 12), # 12 for word doc
-                    legend.title = element_text(size = 10),
-                    legend.text = element_text(size = 8), 
-                    legend.position = c(1, 0.001), 
-                    legend.justification = c(1, 0),
-                    legend.direction = "horizontal")
+pWord1 <- p1 + theme(text = element_text(size = 12), 
+                     axis.text = element_text(angle = 30),
+                     legend.spacing.y = unit(0, 'cm'),
+                     legend.key.size = unit(0, "cm"),
+                     legend.position = c(0.1, 0.9), 
+                     legend.title = element_text(size = 10),
+                     legend.text = element_text(size = 10))
 
 ggsave("figures/size_spec.png", width = 6.5, height = 6.5, dpi = 600)
 
 
-##### Model diagnostics ============================================================
+##### Model diagnostics & fit ======================================================
 pal_diag <- rev(brewer.pal(n = 3, name = "Dark2"))
 
 # Chain convergence
@@ -529,8 +607,8 @@ posterior <- as.array(m1)
 dimnames(posterior)
 
 d1 <- mcmc_trace(posterior,
-                 pars = c("b_Intercept", "b_area2Warm", "sd_Year_ct__Intercept", 
-                          "sigma", "Intercept"),
+                 pars = c("b_area2Cold", "b_area2Warm", "b_Year_ct", 
+                          "sigma"),
                  facet_args = list(ncol = 3, strip.position = "left")) + 
   theme(text = element_text(size = 12),
         strip.text = element_text(size = 6),
@@ -564,4 +642,4 @@ d4 <- pp_check(m1) +
 d1 / (d2 / (d3 + d4)) + 
   plot_annotation(tag_levels = 'A')
 
-ggsave("figures/supp/size_spec_diag.png", width = 6.5, height = 8.5, dpi = 600)
+ggsave("figures/supp/size_spec_diag_fit.png", width = 6.5, height = 8.5, dpi = 600)
