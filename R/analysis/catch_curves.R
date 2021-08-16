@@ -40,6 +40,13 @@ df <- read.csv("data/aged_catch_BT_FM_1987-2003.csv")
 
 head(df)
 
+# df %>% group_by(Area) %>% summarise(mean_age = mean(age), sd_age = sd(age))
+# df %>% filter(age > 2) %>% group_by(Area) %>% summarise(mean_age = mean(age), sd_age = sd(age))
+# ggplot(df, aes(Area, age)) + geom_boxplot()
+# df %>% filter(age > 2) %>% ggplot(., aes(Area, age)) + geom_boxplot()
+# summary(lm(age~Area, data = df))
+# summary(lm(age~Area, data = filter(df, age > 2)))
+
 # Currently the data is in format 1 row, 1 ind. We want a column that has the CPUE
 # by length class.
 
@@ -133,86 +140,219 @@ d <- df4 %>%
 
 
 # C. FIT MODELS ====================================================================
+##### Catch curves =================================================================
 # Fitting models of log catch ~ age with interactive or additive effects of area, 
 # using catch year as a random effect
 
-# Center year variable and rename area
+# Edit variables
 d <- d %>%
-  mutate(year_ct = year - min(year),
-         year_ct = as.integer(year_ct),
-         log_cpue = log(cpue_numbers),
+  mutate(log_cpue = log(cpue_numbers),
          area2 = ifelse(area == "BT", "Warm", "Cold"))
 
-# Without interaction
-m1 <- brm(log_cpue ~ age + area2 + (1 + age|year_ct),
-          family = gaussian(), data = d, iter = 4000, cores = 3, chains = 3,
-          save_all_pars = TRUE,
-          control = list(adapt_delta = 0.99))
+# Random intercepts only because of better convergence (posteriors of random year slopes looking funny)
+# m1 <- brm(log_cpue ~ -1 + age * area2 + (0 + area2|year),
 
-# With interaction
-m2 <- brm(log_cpue ~ age * area2 + (1 + age|year_ct),
-          family = gaussian(), data = d, iter = 4000, cores = 3, chains = 3,
-          save_all_pars = TRUE,
-          control = list(adapt_delta = 0.99))
+prior0 <-
+  prior(normal(0, 10), class = "b") +
+  prior(gamma(2, 0.1), class = "nu") +
+  prior(student_t(3, 0, 2.5), class = "sd") +
+  prior(student_t(3, 0, 2.5), class = "sigma")
 
-loo_m1 <- loo(m1)
-loo_m2 <- loo(m2)
+# No random slopes (same slopes for all years, but still area-specific)
+m0 <- brm(
+  log_cpue ~ -1 + age * area2 + (0 + area2||year),          
+  family = student(), data = d, iter = 4000, cores = 3, chains = 3,
+  save_all_pars = TRUE,
+  prior = prior0,
+  )
 
-loo_compare(loo_m1, loo_m2)
+summary(m0)
+loo_m0 <- loo(m0, moment_match = TRUE)
 
-summary(m2)
-plot(m2)
+
+# Area-specific slopes that also vary by year (unocorrelated random effects)
+m1 <- brm(
+  log_cpue ~ -1 + age * area2 + (0 + area2*age||year),
+  family = student(), data = d, iter = 4000, cores = 3, chains = 3,
+  save_all_pars = TRUE,
+  prior = prior0,
+  control = list(adapt_delta = 0.99)
+  )
+
+summary(m1)
+loo_m1 <- loo(m1, moment_match = TRUE)
+
+# Check how bad they are. I think ok for now, below 0.7 at least
+plot(loo_m1, diagnostic = c("k", "n_eff"), label_points = TRUE)
+
+# Area-specific slopes that also vary by year (correlated random effects)
+m1b <- brm(log_cpue ~ -1 + age * area2 + (0 + area2*age||year),
+           family = student(), data = d, iter = 4000, cores = 3, chains = 3,
+           save_all_pars = TRUE,
+           control = list(adapt_delta = 0.99),
+           prior = prior0)
+
+summary(m1b)
+loo_m1b <- loo(m1b, moment_match = TRUE)
+
+# Check how bad they are. I think ok for now, below 0.7 at least
+plot(loo_m1b, diagnostic = c("k", "n_eff"), label_points = TRUE)
+
+loo_compare(loo_m0, loo_m1, loo_m1b)
 
 
 # D. PRODUCE FIGURES ===============================================================
 ##### Plot Predictions =============================================================
-
 pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 
-#as.data.frame(fixef(m1))
-as.data.frame(fixef(m2)) # Extract "fixed" effects from m2 for plotting the equation 
+as.data.frame(fixef(m1)) # Extract "fixed" effects from m2 for plotting the equation 
 
 p1 <- d %>%
   ungroup() %>%
   data_grid(age = seq_range(age, by = 1),
             area2 = c("Warm", "Cold")) %>%
-  add_predicted_draws(m2, re_formula = NA) %>%
+  add_predicted_draws(m1, re_formula = NA) %>%
   ggplot(aes(factor(age), y = log_cpue, color = area2, fill = area2)) +
-  stat_lineribbon(aes(y = .prediction), .width = c(.90, .50), alpha = 0.25) +
-  geom_jitter(data = d, alpha = 0.9, size = 3, width = 0.2, height = 0, shape = 21, color = "white") +
-  stat_lineribbon(aes(y = .prediction), .width = 0, alpha = 0.8) +
+  stat_lineribbon(aes(y = .prediction), .width = c(.90, .50), alpha = 0.25, size = 0.5) +
+  geom_jitter(data = d, alpha = 0.9, size = 1.3, width = 0.2, height = 0, shape = 21, color = "white") +
+  stat_lineribbon(aes(y = .prediction), .width = 0, alpha = 0.8, size = 0.5) +
   scale_fill_manual(values = rev(pal)) +
   scale_color_manual(values = rev(pal)) +
-  labs(color = "Area", fill = "Area",
-       x = "Age",
-       y = "Log(CPUE)") +
-  guides(fill = guide_legend(override.aes = list(alpha = 0.5))) + 
-  # Using m2
-  annotate("text", 2.2, -1, size = 3.5, color = pal[2],
-           label = expression(paste("y=6.56-0.64×age; ", italic(Z), "=0.65 [0.59, 0.70]", sep = ""))) + # Cold
-  annotate("text", 2.2, -1.25, size = 3.5, color = pal[1],
-           label = expression(paste("y=5.60-0.75×age; ", italic(Z), "=0.75 [0.63, 0.86]", sep = ""))) + # Warm
+  labs(color = "Area", fill = "Area", x = "Age [yrs]", y = "Log(CPUE)") +
+  guides(color = guide_legend(override.aes = list(linetype = 0, size = 2, shape = 16, alpha = 0.5,
+                                                  color = rev(pal), fill = NA))) +
+  annotate("text", 2.4, -0.45, label = paste("n=", nrow(d), sep = ""), size = 2.5) +
+  annotate("text", 2.4, -0.9, size = 2.5, color = pal[2],
+           label = expression(paste("y=6.55-0.64×age; ", italic(Z), "=0.64 [0.60, 0.69]", sep = ""))) + # Cold
+  annotate("text", 2.4, -1.35, size = 2.5, color = pal[1],
+           label = expression(paste("y=5.56-0.75×age; ", italic(Z), "=0.75 [0.65, 0.85]", sep = ""))) + # Warm
   NULL
 
 pWord1 <- p1 + theme(text = element_text(size = 12), 
-                     legend.position = c(0.9, 0.9), 
+                     legend.position = c(0.9, 0.9),
+                     legend.spacing.y = unit(0, 'cm'),
+                     legend.key.size = unit(0, "cm"),
                      legend.title = element_text(size = 10),
-                     legend.text = element_text(size = 10))
+                     legend.text = element_text(size = 8))
 
-ggsave("figures/catch_curve.png", width = 6.5, height = 6.5, dpi = 600)
+# ggsave("figures/catch_curve.png", width = 6.5, height = 6.5, dpi = 600)
 
 
-##### Model diagnostics ============================================================
+##### Random year effects ==========================================================
+# http://mjskay.github.io/tidybayes/articles/tidy-brms.html
+get_variables(m0)
+
+# Random intercepts
+# Warm
+warm_intercept <- m1 %>%
+  spread_draws(b_area2Warm, r_year[year, area2Warm]) %>%
+  filter(area2Warm == "area2Warm") %>% 
+  mutate(warm_intercepts = b_area2Warm + r_year) %>% # The random effects are offsets
+  ggplot(aes(y = factor(year), x = warm_intercepts)) +
+  stat_halfeye(fill = pal[1], alpha = 0.8) + 
+  labs(y = "Year", x = "Intercept") + 
+  ggtitle("Warm")
+
+# Cold
+cold_intercept <- m1 %>%
+  spread_draws(b_area2Cold, r_year[year, area2Cold]) %>%
+  filter(area2Cold == "area2Cold") %>% 
+  mutate(cold_intercepts = b_area2Cold + r_year) %>% # The random effects are offsets
+  ggplot(aes(y = factor(year), x = cold_intercepts)) +
+  stat_halfeye(fill = pal[2], alpha = 0.8) + 
+  labs(y = "", x = "Intercept") + 
+  ggtitle("Cold")
+
+warm_intercept + cold_intercept
+
+ggsave("figures/supp/catch_curves_random_intercepts.png", width = 6.5, height = 6.5, dpi = 600)
+
+# Warm slopes
+#https://stackoverflow.com/questions/57379091/how-to-extract-tidy-draws-from-brms-models-tidybayes-for-interaction-terms
+# Check it corresponds to the summary
+# m1 %>% spread_draws(b_age) %>% summarize(mean_warm = mean(b_age))
+# m1 %>%
+#   spread_draws(b_age, `b_age:area2Warm`, r_year[year, age]) %>% 
+#   filter(age %in% c("age", "area2Warm:age")) %>% 
+#   mutate(warm_mean_slopes = (b_age + `b_age:area2Warm`)) %>% 
+#   ungroup() %>% 
+#   summarise(mean_warm_slope = mean(warm_mean_slopes))
+# 
+# warm_slope <- m1 %>%
+#   spread_draws(b_age, `b_age:area2Warm`, r_year[year, age]) %>% # Extract random effects and global effects
+#   filter(age %in% c("age", "area2Warm:age")) %>% # Filter the correct parameters. Because the warm slope is an offset, I need also the cold slope. For some reason, I get all levels of r_year when I include multiple parameters, not when I do only r_year[year, age]
+#   mutate(warm_mean_slope = (b_age + `b_age:area2Warm`)) %>% # Calculate the average warm slope (not it's a difference to the b_age, i.e. the cold slope)
+#   filter(age == "area2Warm:age") %>% # Filter only draws corresponding to the random effect that is the warm slope (not the cold slope)
+#   mutate(warm_slopes = warm_mean_slope + r_year) %>% # The random effects are offsets, so calculate the mean slope, we don't want the difference
+#   ggplot(aes(y = factor(year), x = warm_slopes)) +
+#   stat_halfeye(fill = pal[1], alpha = 0.8) + 
+#   labs(y = "", x = "Slope") + 
+#   coord_flip() +
+#   coord_cartesian(x = c(-0.4, -1))
+# 
+# # Cold slopes
+# cold_slope <- m1 %>%
+#   spread_draws(b_age, r_year[year, age]) %>% # Extract random effects and global effects
+#   filter(age %in% c("age")) %>% # Filter the correct parameters. For some reason, I get all levels of r_year when I include multiple parameters, not when I do only r_year[year, age]
+#   mutate(cold_mean_slope = b_age) %>%
+#   mutate(cold_slopes = cold_mean_slope + r_year) %>% # The random effects are offsets, so calculate the mean slope, we don't want the difference
+#   ggplot(aes(y = factor(year), x = cold_slopes)) +
+#   stat_halfeye(fill = pal[2], alpha = 0.8) + 
+#   labs(y = "", x = "Slope") + 
+#   coord_flip() +
+#   coord_cartesian(x = c(-0.4, -1))
+# 
+# cold_slope / warm_slope + plot_layout(widths = 0.5)
+
+# Plotting together...
+cold_slope_df <- m1 %>%
+  spread_draws(b_age, r_year[year, age]) %>% # Extract random effects and global effects
+  filter(age %in% c("age")) %>% # Filter the correct parameters. For some reason, I get all levels of r_year when I include multiple parameters, not when I do only r_year[year, age]
+  mutate(mean_slope = b_age,
+         Area = "Cold") %>%
+  mutate(slopes = mean_slope + r_year) 
+
+warm_slope_df <- m1 %>%
+  spread_draws(b_age, `b_age:area2Warm`, r_year[year, age]) %>% # Extract random effects and global effects
+  filter(age %in% c("age", "area2Warm:age")) %>% # Filter the correct parameters. Because the warm slope is an offset, I need also the cold slope. For some reason, I get all levels of r_year when I include multiple parameters, not when I do only r_year[year, age]
+  mutate(mean_slope = (b_age + `b_age:area2Warm`),
+         Area = "Warm") %>% # Calculate the average warm slope (not it's a difference to the b_age, i.e. the cold slope)
+  filter(age == "area2Warm:age") %>% # Filter only draws corresponding to the random effect that is the warm slope (not the cold slope)
+  mutate(slopes = mean_slope + r_year)
+  
+full_df <- bind_rows(cold_slope_df, warm_slope_df)
+
+p_random <- full_df %>% 
+  mutate(Z = slopes*-1) %>% # Convert from slopes to Z
+  ggplot(., aes(y = factor(year), x = Z, fill = factor(Area), color = factor(Area))) +
+  geom_vline(xintercept = c(0.64, 0.75), color = rev(pal), linetype = 2, alpha = 0.4, size = 0.5) +
+  stat_slab(alpha = 0.13, position = position_nudge(y = 0.05), color = NA) + 
+  stat_pointinterval(.width = c(.95), position = position_dodge(width = 0.25),
+                     size = 0.1, alpha = 0.8) +
+  scale_fill_manual(values = rev(pal)) +
+  scale_color_manual(values = rev(pal)) +
+  labs(y = "Year", x = expression(italic(Z))) + 
+  guides(fill = F, color = F) +
+  theme(text = element_text(size = 12),
+        axis.text.x = element_text(angle = 30, size = 9)) + 
+  coord_flip(xlim = c(0.48, 0.9))
+  
+pWord1 / p_random + plot_annotation(tag_levels = 'A')
+
+ggsave("figures/catch_curve_random.png", width = 5.5, height = 6.5, dpi = 600)
+
+
+##### Model diagnostics & fit ======================================================
 pal_diag <- rev(brewer.pal(n = 3, name = "Dark2"))
 
 # Chain convergence
-posterior <- as.array(m2)
+posterior <- as.array(m1)
 dimnames(posterior)
 
 d1 <- mcmc_trace(posterior,
-                 pars = c("b_Intercept", "b_age", "b_area2Warm", 
-                          "b_age:area2Warm", "sd_year_ct__Intercept", "sd_year_ct__age",
-                          "cor_year_ct__Intercept__age", "sigma", "Intercept"),
+                 pars = c("b_age", "b_area2Cold", "b_area2Warm", 
+                          "b_age:area2Warm", "sd_year__area2Cold", "sd_year__area2Warm",
+                          "sd_year__age", "sd_year__area2Warm:age", "nu", "sigma"),
                  facet_args = list(ncol = 3, strip.position = "left")) + 
   theme(text = element_text(size = 12),
         strip.text = element_text(size = 6),
@@ -221,22 +361,34 @@ d1 <- mcmc_trace(posterior,
 
 # Resid vs fitted
 d2 <- d %>%
-  add_residual_draws(m2) %>%
+  add_residual_draws(m1) %>%
   ggplot(aes(x = .row, y = .residual)) +
   stat_pointinterval(alpha = 0.5, size = 0.7) + 
   theme(text = element_text(size = 12))
 
 # qq-plot
+# d3 <- d %>%
+#   add_residual_draws(m1) %>%
+#   median_qi() %>%
+#   ggplot(aes(sample = .residual)) +
+#   geom_qq_line() +
+#   geom_qq(alpha = 0.8) +
+#   theme(text = element_text(size = 12))
+
+summary(m1)$spec_pars
+nu <- summary(m1)$spec_pars[2, 1]
+nu
+
 d3 <- d %>%
-  add_residual_draws(m2) %>%
+  add_residual_draws(m1) %>%
   median_qi() %>%
   ggplot(aes(sample = .residual)) +
-  geom_qq_line() +
-  geom_qq(alpha = 0.8) +
+  geom_qq_line(distribution = qt, dparams = nu) +
+  geom_qq(alpha = 0.8, distribution = qt, dparams = nu) +
   theme(text = element_text(size = 12))
 
 # Posterior predictive
-d4 <- pp_check(m2) + 
+d4 <- pp_check(m1) + 
   theme(text = element_text(size = 12),
         legend.position = c(0.15, 0.95),
         legend.background = element_rect(fill = NA)) + 
@@ -246,4 +398,4 @@ d4 <- pp_check(m2) +
 d1 / (d2 / (d3 + d4)) + 
   plot_annotation(tag_levels = 'A')
 
-ggsave("figures/supp/catch_curve_diag.png", width = 6.5, height = 8.5, dpi = 600)
+ggsave("figures/supp/catch_curve_diag_fit.png", width = 6.5, height = 8.5, dpi = 600)
