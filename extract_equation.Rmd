@@ -1,0 +1,314 @@
+---
+title: "Extracting equations from mixed models"
+author: "Max Lindmark"
+date: "8/9/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse); theme_set(theme_classic(base_size = 12))
+library(lme4)
+library(equatiomatic)
+library(texPreview)
+
+df <- read.csv("data/size_at_age_BT_FM_1970-2004.csv", sep = ";")
+```
+
+### No random effects
+```{r message=FALSE, warning=FALSE, results="hide"}
+m1 <- lm(length ~ -1 + area + catch_year, data = df)
+#tex_preview(extract_eq(m1))
+extract_eq(m1)
+```
+$$
+\operatorname{length} = \beta_{0}(\operatorname{area}_{\operatorname{BT}}) + \beta_{1}(\operatorname{area}_{\operatorname{FM}}) + \beta_{2}(\operatorname{catch\_year}) + \epsilon
+$$
+ 
+### Random intercept
+
+```{r message=FALSE, warning=FALSE, results="hide"}
+m2 <- lmer(length ~ age + (1 |birth_year), data = df)
+extract_eq(m2)
+```
+
+$$
+\begin{aligned}
+  \operatorname{length}_{i}  &\sim N \left(\alpha_{j[i]} + \beta_{1}(\operatorname{age}), \sigma^2 \right) \\
+    \alpha_{j}  &\sim N \left(\mu_{\alpha_{j}}, \sigma^2_{\alpha_{j}} \right)
+    \text{, for birth_year j = 1,} \dots \text{,J}
+\end{aligned}
+$$
+
+
+### Uncorrelated intercept and slope
+
+```{r message=FALSE, warning=FALSE, results="hide"}
+m3 <- lmer(length ~ age + (1 + age||birth_year), data = df)
+extract_eq(m3)
+```
+
+$$
+\begin{aligned}
+  \operatorname{length}_{i}  &\sim N \left(\alpha_{j[i]} + \beta_{1j[i]}(\operatorname{age}), \sigma^2 \right) \\    
+\left(
+  \begin{array}{c} 
+    \begin{aligned}
+      &\alpha_{j} \\
+      &\beta_{1j}
+    \end{aligned}
+  \end{array}
+\right)
+  &\sim N \left(
+\left(
+  \begin{array}{c} 
+    \begin{aligned}
+      &\mu_{\alpha_{j}} \\
+      &\mu_{\beta_{1j}}
+    \end{aligned}
+  \end{array}
+\right)
+, 
+\left(
+  \begin{array}{cc}
+     \sigma^2_{\alpha_{j}} & 0 \\ 
+     0 & \sigma^2_{\beta_{1j}}
+  \end{array}
+\right)
+ \right)
+    \text{, for birth_year j = 1,} \dots \text{,J}
+\end{aligned}
+$$
+
+### Uncorrelated intercept and slope, more than 2 random effects
+
+```{r message=FALSE, warning=FALSE, results="hide"}
+hsb2 <- lmer(math ~ female + ses + minority + (female + ses||sch.id), hsb)
+tex_preview(extract_eq(hsb2))
+extract_eq(hsb2)
+
+# df2 <- df %>%
+#   mutate(BT = ifelse(area == "BT", 1, 0),
+#          year_fc = factor(birth_year),
+#          age = as.numeric(age))
+# 
+# m3b <- lmer(length ~ BT + age + (BT + age||year_fc), data = df2)
+# tex_preview(extract_eq(m3b))
+```
+
+$$
+\begin{aligned}
+  \operatorname{math}_{i}  &\sim N \left(\mu, \sigma^2 \right) \\
+    \mu &=\alpha_{j[i]} + \beta_{1j[i]}(\operatorname{female}) + \beta_{2j[i]}(\operatorname{ses}) + \beta_{3}(\operatorname{minority}) \\    
+\left(
+  \begin{array}{c} 
+    \begin{aligned}
+      &\alpha_{j} \\
+      &\beta_{1j} \\
+      &\beta_{2j}
+    \end{aligned}
+  \end{array}
+\right)
+  &\sim N \left(
+\left(
+  \begin{array}{c} 
+    \begin{aligned}
+      &\mu_{\alpha_{j}} \\
+      &\mu_{\beta_{1j}} \\
+      &\mu_{\beta_{2j}}
+    \end{aligned}
+  \end{array}
+\right)
+, 
+\left(
+  \begin{array}{ccc}
+     \sigma^2_{\alpha_{j}} & 0 & 0 \\ 
+     0 & \sigma^2_{\beta_{1j}} & 0 \\ 
+     0 & 0 & \sigma^2_{\beta_{2j}}
+  \end{array}
+\right)
+ \right)
+    \text{, for sch.id j = 1,} \dots \text{,J}
+\end{aligned}
+$$
+
+### Correlated slope and intercept
+
+```{r message=FALSE, warning=FALSE, results="hide"}
+m4 <- lmer(length ~ age + (1 + age|birth_year), data = df)
+extract_eq(m4)
+```
+
+$$
+\begin{aligned}
+  \operatorname{length}_{i}  &\sim N \left(\alpha_{j[i]} + \beta_{1j[i]}(\operatorname{age}), \sigma^2 \right) \\    
+\left(
+  \begin{array}{c} 
+    \begin{aligned}
+      &\alpha_{j} \\
+      &\beta_{1j}
+    \end{aligned}
+  \end{array}
+\right)
+  &\sim N \left(
+\left(
+  \begin{array}{c} 
+    \begin{aligned}
+      &\mu_{\alpha_{j}} \\
+      &\mu_{\beta_{1j}}
+    \end{aligned}
+  \end{array}
+\right)
+, 
+\left(
+  \begin{array}{cc}
+     \sigma^2_{\alpha_{j}} & \rho_{\alpha_{j}\beta_{1j}} \\ 
+     \rho_{\beta_{1j}\alpha_{j}} & \sigma^2_{\beta_{1j}}
+  \end{array}
+\right)
+ \right)
+    \text{, for birth_year j = 1,} \dots \text{,J}
+\end{aligned}
+$$
+
+### Single random parameter at two levels
+
+```{r message=FALSE, warning=FALSE, results="hide"}
+m5 <- lmer(length ~ age + 1 + (1|birth_year/ID), data = df)
+extract_eq(m5)
+```
+
+$$
+\begin{aligned}
+  \operatorname{length}_{i}  &\sim N \left(\alpha_{j[i],k[i]} + \beta_{1}(\operatorname{age}), \sigma^2 \right) \\
+    \alpha_{j}  &\sim N \left(\mu_{\alpha_{j}}, \sigma^2_{\alpha_{j}} \right)
+    \text{, for ID:birth_year j = 1,} \dots \text{,J} \\
+    \alpha_{k}  &\sim N \left(\mu_{\alpha_{k}}, \sigma^2_{\alpha_{k}} \right)
+    \text{, for birth_year k = 1,} \dots \text{,K}
+\end{aligned}
+$$
+
+### Now see how equatiomanic compares to brms example: https://bookdown.org/content/4857/adventures-in-covariance.html
+
+```{r}
+library(tidyverse)
+library(Matrix)
+#devtools::install_github("EdwinTh/dutchmasters")
+library(dutchmasters)
+library(tidyr)
+
+a       <-  3.5  # average morning wait time
+b       <- -1    # average difference afternoon wait time
+sigma_a <-  1    # std dev in intercepts
+sigma_b <-  0.5  # std dev in slopes
+rho     <- -.7   # correlation between intercepts and slopes
+
+# the next three lines of code simply combine the terms, above
+mu     <- c(a, b)
+
+cov_ab <- sigma_a * sigma_b * rho
+sigma  <- matrix(c(sigma_a^2, cov_ab, 
+                   cov_ab, sigma_b^2), ncol = 2)
+
+matrix(1:4, nrow = 2, ncol = 2)
+
+
+sigmas <- c(sigma_a, sigma_b)          # standard deviations
+rho    <- matrix(c(1, rho,             # correlation matrix
+                   rho, 1), nrow = 2)
+
+# now matrix multiply to get covariance matrix
+sigma <- diag(sigmas) %*% rho %*% diag(sigmas)
+
+# how many cafes would you like?
+n_cafes <- 20
+
+set.seed(5)  # used to replicate example
+
+vary_effects <- 
+  MASS::mvrnorm(n_cafes, mu, sigma) %>% 
+  data.frame() %>% 
+  set_names("a_cafe", "b_cafe")
+
+head(vary_effects)
+
+dutchmasters$pearl_earring
+
+scales::show_col(dutchmasters$pearl_earring)
+
+theme_pearl_earring <- function(light_color = "#E8DCCF", 
+                                dark_color = "#100F14", 
+                                my_family = "Courier",
+                                ...) {
+  
+  theme(line = element_line(color = light_color),
+        text = element_text(color = light_color, family = my_family),
+        axis.line = element_blank(),
+        axis.text = element_text(color = light_color),
+        axis.ticks = element_line(color = light_color),
+        legend.background = element_rect(fill = dark_color, color = "transparent"),
+        legend.key = element_rect(fill = dark_color, color = "transparent"),
+        panel.background = element_rect(fill = dark_color, color = light_color),
+        panel.grid = element_blank(),
+        plot.background = element_rect(fill = dark_color, color = dark_color),
+        strip.background = element_rect(fill = dark_color, color = "transparent"),
+        strip.text = element_text(color = light_color, family = my_family),
+        ...)
+  
+}
+
+# now set `theme_pearl_earring()` as the default theme
+theme_set(theme_pearl_earring())
+
+vary_effects %>% 
+  ggplot(aes(x = a_cafe, y = b_cafe)) +
+  geom_point(color = "#80A0C7") +
+  geom_rug(color = "#8B9DAF", size = 1/7)
+
+cor(vary_effects$a_cafe, vary_effects$b_cafe)
+
+n_visits <- 10
+sigma    <-  0.5  # std dev within cafes
+
+set.seed(22)  # used to replicate example
+
+d <-
+  vary_effects %>% 
+  mutate(cafe = 1:n_cafes) %>% 
+  tidyr::expand(nesting(cafe, a_cafe, b_cafe), visit = 1:n_visits) %>% 
+  mutate(afternoon = rep(0:1, times = n() / 2)) %>% 
+  mutate(mu = a_cafe + b_cafe * afternoon) %>% 
+  mutate(wait = rnorm(n = n(), mean = mu, sd = sigma))
+
+
+# brms model:
+# b14.1 <- 
+#   brm(data = d, 
+#       family = gaussian,
+#       wait ~ 1 + afternoon + (1 + afternoon | cafe),
+#       prior = c(prior(normal(5, 2), class = Intercept),
+#                 prior(normal(-1, 0.5), class = b),
+#                 prior(exponential(1), class = sd),
+#                 prior(exponential(1), class = sigma),
+#                 prior(lkj(2), class = cor)),
+#       iter = 2000, warmup = 1000, chains = 4, cores = 4,
+#       seed = 867530,
+#       file = "fits/b14.01")
+
+
+library(lme4)
+
+wait ~ 1 + afternoon + (1 + afternoon | cafe)
+
+mc <- lmer(wait ~ 1 + afternoon + (1 + afternoon | cafe), data = d)
+extract_eq(mc)
+```
+
+
+
+
+
+
