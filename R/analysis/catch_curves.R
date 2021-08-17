@@ -40,6 +40,12 @@ df <- read.csv("data/aged_catch_BT_FM_1987-2003.csv")
 
 head(df)
 
+# df %>%
+#   filter(Area == "BT") %>%
+#   group_by(year, netID) %>%
+#   summarise(n = n()) %>%
+#   ggplot(., aes(year, n)) + geom_bar(stat="identity")
+
 # df %>% group_by(Area) %>% summarise(mean_age = mean(age), sd_age = sd(age))
 # df %>% filter(age > 2) %>% group_by(Area) %>% summarise(mean_age = mean(age), sd_age = sd(age))
 # ggplot(df, aes(Area, age)) + geom_boxplot()
