@@ -413,10 +413,10 @@ prior_summary(m3s)
 # **Not sure the model can have b1 as random AND common, hence the b2 random now... 
 # Define priors
 prior4 <-
-  prior(normal(500, 100), nlpar = "b1") +
-  prior(normal(-1.5, 1), nlpar = "b2W") +
-  prior(normal(-1.5, 1), nlpar = "b2C")
-# 
+  prior(normal(500, 100), nlpar = "b1W") +
+  prior(normal(500, 100), nlpar = "b1C") +
+  prior(normal(-1.5, 1), nlpar = "b2")
+ 
 # ptm <- proc.time()
 # m4 <- brm(bf(growth ~ areaW*b1*length^b2W + areaC*b1*length^b2C, 
 #              b1 ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
@@ -439,13 +439,14 @@ prior4 <-
 # m4 looks a bit overdispersed, so I'm fitting a student model as well
 
 ptm <- proc.time()
-m4s <- brm(bf(growth ~ areaW*b1*length^b2W + areaC*b1*length^b2C, 
-             b1 ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
-             b2W + b2C ~ 1, nl = TRUE),
-          family = student(),
-          data = dfm_dummy, prior = prior4, iter = 4000, cores = 3, chains = 3,
-          save_all_pars = TRUE,
-          control = list(adapt_delta = 0.99))
+m4s <- brm(bf(growth ~ areaW*b1W*length^b2 + areaC*b1C*length^b2, 
+              b1W ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
+              b1C ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
+              b2 ~ 1, nl = TRUE),
+           family = student(),
+           data = dfm_dummy, prior = prior4, iter = 4000, cores = 3, chains = 3,
+           save_all_pars = TRUE,
+           control = list(adapt_delta = 0.99))
 proc.time() - ptm
 # user   system  elapsed 
 # 58.239   10.899 3870.172 
@@ -455,7 +456,7 @@ proc.time() - ptm
 # prior_summary(m4s)
 
 # Save model object to not have to rerun it...
-# saveRDS(m4s, "output/growth_scaling/m4s.rds")
+#saveRDS(m4s, "output/growth_scaling/m4s.rds")
 #m4s <- readRDS("output/growth_scaling/m4s.rds")
 
 
