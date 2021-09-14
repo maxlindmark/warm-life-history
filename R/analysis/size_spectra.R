@@ -32,6 +32,7 @@ library(tidybayes)
 library(RColorBrewer)
 library(modelr)
 library(viridis)
+library(ggridges)
 
 # other attached packages:
 # [1] sizeSpectra_1.0.0.0 patchwork_1.0.1     RColorBrewer_1.1-2  tidylog_1.0.2       forcats_0.5.0       stringr_1.4.0      
@@ -547,20 +548,66 @@ loo_compare(loo_m0, loo_m1, loo_m2)
 pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 
 ##### Plot predictions ============================================================
+# Ridge plots of size distribution 
+# ggplot(size_df, aes(x = length_group, y = factor(year))) +
+#   geom_density_ridges(stat = "binline", scale = 0.95, draw_baseline = FALSE)
+# 
+# sort(unique(size_df$length_group))
+# 
+# hist(size_df$length_group, breaks = length(unique(size_df$length_group)))
+# 
+# t1 <- ggplot(filter(size_df, Area == "BT"), aes(x = length_group, y = after_stat(count/sum(count)))) +   
+#   geom_bar() + 
+#   scale_y_continuous(labels = scales::percent) +
+#   theme_classic() + 
+#   ggtitle("BT") +
+#   coord_cartesian(expand = 0)
+# 
+# t2 <- ggplot(filter(size_df, Area == "FM"), aes(x = length_group, y = after_stat(count/sum(count)))) +   
+#   geom_bar() + 
+#   scale_y_continuous(labels = scales::percent) +
+#   theme_classic() + 
+#   ggtitle("FM") +
+#   coord_cartesian(expand = 0)
+
+# Plot proportion histograms to illustrtate the size-distribution
+# By year
+# size_df %>%
+#   mutate(Area2 = ifelse(Area == "BT", "Warm", "Cold")) %>% 
+#   ggplot(., aes(x = length_group, fill = Area2, group = Area2)) +
+#   stat_count(mapping = aes(x = length_group, y = ..prop.., group = Area2),
+#              position = position_dodge(), alpha = 0.8) +
+#   scale_fill_manual(values = rev(pal)) +
+#   coord_cartesian(expand = 0) +
+#   labs(x = "Length group [cm]") +
+#   facet_wrap(~ year, ncol = 2) +
+#   guides(fill = FALSE)
+
+p0 <- 
+  size_df %>%
+  mutate(Area2 = ifelse(Area == "BT", "Warm", "Cold")) %>% 
+  ggplot(., aes(x = length_group, fill = Area2, group = Area2)) +
+  stat_count(mapping = aes(x = length_group, y = ..prop.., group = Area2),
+             position = position_dodge(), alpha = 0.8) +
+  scale_fill_manual(values = rev(pal)) +
+  theme_light() + 
+  coord_cartesian(expand = 0) +
+  labs(x = "Length group [cm]") +
+  guides(fill = FALSE)
+
+pWord0 <- p0 + theme(text = element_text(size = 12), 
+                     axis.text = element_text(angle = 30)#,
+                     # legend.spacing.y = unit(0, 'cm'),
+                     # legend.key.size = unit(0, "cm"),
+                     # legend.title = element_text(size = 10),
+                     # legend.text = element_text(size = 10)
+)
+
+
+# Compare 
+# (t1 + t2) / pWord0
+
 as.data.frame(fixef(m1)) # Extract "fixed" effects from m2 for plotting the equation 
-
-spectra %>%
-  ggplot(aes(factor(Year), y = b, color = area2, fill = area2)) +
-  geom_point(data = spectra, alpha = 0.4, size = 3, shape = 21, color = "white",
-             position = position_dodge(width = 0.4)) +
-  geom_errorbar(data = spectra, aes(x = factor(Year), ymin = confMin, ymax = confMax),
-                alpha = 0.4, size = 1, width = 0.4, position = position_dodge(width = 0.4))
-
-spectra %>%
-  ggplot(aes(factor(Year), y = b, color = area2, fill = area2)) +
-  geom_point(data = spectra, alpha = 0.4, size = 3, shape = 21, color = "white") +
-  geom_errorbar(data = spectra, aes(x = factor(Year), ymin = confMin, ymax = confMax),
-                alpha = 0.4, size = 1, width = 0.4)
 
 p1 <- spectra %>%
   ungroup() %>%
@@ -582,7 +629,7 @@ p1 <- spectra %>%
        y = expression(paste("Size-spectrum slope ", italic((b))))) +
   guides(color = guide_legend(override.aes = list(linetype = 0, size = 2, shape = 16, alpha = 0.5,
                                                   color = rev(pal), fill = NA))) +
-  annotate("text", 15, -4.5, size = 3.5, color = pal[2],
+  annotate("text", 15, -4.4, size = 3.5, color = pal[2],
            label = "y=-3.50 + 0.08×year") + # Cold
   annotate("text", 15, -4.6, size = 3.5, color = pal[1],
            label = "y=-3.12 + 0.08×year") + # Warm
@@ -592,9 +639,49 @@ pWord1 <- p1 + theme(text = element_text(size = 12),
                      axis.text = element_text(angle = 30),
                      legend.spacing.y = unit(0, 'cm'),
                      legend.key.size = unit(0, "cm"),
-                     legend.position = c(0.1, 0.9), 
+                     legend.position = c(0.11, 0.9), 
                      legend.title = element_text(size = 10),
-                     legend.text = element_text(size = 10))
+                     legend.text = element_text(size = 10),
+                     legend.key = element_blank())
+
+
+# Now plot the posterior intercepts
+# lines manually simply by extracting the fixed effects
+m1_fe <- fixef(m1, probs = c(0.1, 0.9)) %>% as.data.frame()
+posterior <- as.array(m1)
+dimnames(posterior)
+
+# Define matching palette
+pal2 <- alpha(pal, alpha = 0.8)
+
+color_scheme_set(rep("white", 6)) # This is to be able to have a fill color with alpha
+
+intercept_warm <- mcmc_dens(posterior, pars = c("b_area2Warm"),
+                            facet_args = list(nrow = 2)) + 
+  geom_density(fill = pal2[1], color = NA) + 
+  geom_vline(xintercept = m1_fe$Estimate[2], linetype = 1, color = "white") +
+  geom_vline(xintercept = m1_fe$Q10[2], linetype = 2, color = "white") +
+  geom_vline(xintercept = m1_fe$Q90[2], linetype = 2, color = "white") +
+  coord_cartesian(xlim = c(-4.2, -2.5)) + 
+  labs(x = "", y = "") + 
+  theme(text = element_text(size = 12)) 
+
+intercept_cold <- mcmc_dens(posterior, pars = c("b_area2Cold"),
+                            facet_args = list(nrow = 2)) + 
+  geom_density(fill = pal2[2], color = NA) + 
+  geom_vline(xintercept = m1_fe$Estimate[1], linetype = 1, color = "white") +
+  geom_vline(xintercept = m1_fe$Q10[1], linetype = 2, color = "white") +
+  geom_vline(xintercept = m1_fe$Q90[1], linetype = 2, color = "white") +
+  coord_cartesian(xlim = c(-4.2, -2.5)) + 
+  labs(x = expression(italic(alpha)), y = "") +
+  theme(text = element_text(size = 12))
+
+post_inter <- intercept_warm/intercept_cold
+
+
+pWord1 / (pWord0 + post_inter) +
+  #plot_layout(widths = c(3, 1)) +
+  plot_annotation(tag_levels = "A")
 
 ggsave("figures/size_spec.png", width = 6.5, height = 6.5, dpi = 600)
 

@@ -474,7 +474,7 @@ proc.time() - ptm
 # loo_m3 <- loo(m3, moment_match = TRUE)
 # loo_m4 <- loo(m4, moment_match = TRUE)
 loo_m3s <- loo(m3s, moment_match = TRUE)
-loo_m4s <- loo(m4s, moment_match = TRUE)
+loo_m4s <- loo(m4s, moment_match = TRUE, reloo = TRUE)
 
 loo_compare(loo_m3s, loo_m4s)
 # elpd_diff se_diff
@@ -506,9 +506,9 @@ p1 <- dfm_dummy %>%
   labs(y = expression(paste("Growth [%", yr^-1, "]")),
        x = "Length [cm]", fill = "Area", colour = "Area") +
   annotate("text", 35, 36, label = paste("n=", nrow(dfm), sep = ""), size = 3.5) +
-  annotate("text", 35, 33, size = 3.5, color = pal[2],
+  annotate("text", 35, 33, size = 3.5, color = pal[1],
            label = expression(paste("y=433.54×", length^-1.18))) + # Cold
-  annotate("text", 35, 30, size = 3.5, color = pal[1],
+  annotate("text", 35, 30, size = 3.5, color = pal[2],
            label = expression(paste("y=510.73×", length^-1.13))) + # Warm
   NULL
 
@@ -520,6 +520,61 @@ pWord1 <- p1 + theme(text = element_text(size = 12),
                      legend.text = element_text(size = 10))
 
 ggsave("figures/growth_pred.png", width = 6.5, height = 6.5, dpi = 600)
+
+# Plot the posteriors of the coefficients
+# Plotting mcmc_dens and use patchwork to plot them together. Note I add the vertical
+# lines manually simply by extracting the fixed effects
+m3s_fe <- fixef(m3s, probs = c(0.1, 0.9)) %>% as.data.frame()
+posterior <- as.array(m3s)
+
+# Define matching palette
+pal2 <- alpha(pal, alpha = 0.8)
+
+color_scheme_set(rep("white", 6)) # This is to be able to have a fill color with alpha
+
+b1_warm <- mcmc_dens(posterior, pars = c("b_b1W_Intercept"),
+                       facet_args = list(nrow = 2)) + 
+  geom_density(fill = pal2[2], color = NA) + 
+  geom_vline(xintercept = m3s_fe$Estimate[1], linetype = 1, color = "white") +
+  geom_vline(xintercept = m3s_fe$Q10[1], linetype = 2, color = "white") +
+  geom_vline(xintercept = m3s_fe$Q90[1], linetype = 2, color = "white") +
+  coord_cartesian(xlim = c(390, 640)) + 
+  labs(x = "", y = "") + 
+  theme(text = element_text(size = 12)) 
+
+b1_cold <- mcmc_dens(posterior, pars = c("b_b1C_Intercept"),
+                       facet_args = list(nrow = 2)) + 
+  geom_density(fill = pal2[1], color = NA) + 
+  geom_vline(xintercept = m3s_fe$Estimate[2], linetype = 1, color = "white") +
+  geom_vline(xintercept = m3s_fe$Q10[2], linetype = 2, color = "white") +
+  geom_vline(xintercept = m3s_fe$Q90[2], linetype = 2, color = "white") +
+  coord_cartesian(xlim = c(390, 640)) + 
+  labs(x = expression(italic(b[1])), y = "") +
+  theme(text = element_text(size = 12))
+
+b2_warm <- mcmc_dens(posterior, pars = c("b_b2W_Intercept"),
+                    facet_args = list(nrow = 2)) + 
+  geom_density(fill = pal2[2], color = NA) + 
+  geom_vline(xintercept = m3s_fe$Estimate[3], linetype = 1, color = "white") +
+  geom_vline(xintercept = m3s_fe$Q10[3], linetype = 2, color = "white") +
+  geom_vline(xintercept = m3s_fe$Q90[3], linetype = 2, color = "white") +
+  coord_cartesian(xlim = c(-1.2, -1.07)) +
+  xlab("") + 
+  theme(text = element_text(size = 12)) 
+
+b2_cold <- mcmc_dens(posterior, pars = c("b_b2C_Intercept"),
+                    facet_args = list(nrow = 2)) + 
+  geom_density(fill = pal2[1], color = NA) + 
+  geom_vline(xintercept = m3s_fe$Estimate[4], linetype = 1, color = "white") +
+  geom_vline(xintercept = m3s_fe$Q10[4], linetype = 2, color = "white") +
+  geom_vline(xintercept = m3s_fe$Q90[4], linetype = 2, color = "white") +
+  coord_cartesian(xlim = c(-1.2, -1.07)) +
+  labs(x = expression(italic(b[2])), y = "") +
+  theme(text = element_text(size = 12))
+
+(b1_warm + b2_warm + b1_cold + b2_cold) + plot_annotation(tag_levels = 'A')
+
+ggsave("figures/supp/growth_posteriors.png", width = 6.5, height = 6.5, dpi = 600)
 
 
 ##### Model diagnostics & fit ======================================================
@@ -597,3 +652,5 @@ d1 / (d2 / (d3 + d4)) +
   plot_annotation(tag_levels = 'A')
 
 ggsave("figures/supp/growth_diag_fit.png", width = 6.5, height = 8.5, dpi = 600)
+
+

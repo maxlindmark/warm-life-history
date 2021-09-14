@@ -176,7 +176,7 @@ summary(m0)
 loo_m0 <- loo(m0, moment_match = TRUE)
 
 
-# Area-specific slopes that also vary by year (unocorrelated random effects)
+# Area-specific slopes that also vary by year (uncorrelated random effects)
 m1 <- brm(
   log_cpue ~ -1 + age * area2 + (0 + area2*age||year),
   family = student(), data = d, iter = 4000, cores = 3, chains = 3,
@@ -246,7 +246,7 @@ pWord1 <- p1 + theme(text = element_text(size = 12),
 
 ##### Random year effects ==========================================================
 # http://mjskay.github.io/tidybayes/articles/tidy-brms.html
-get_variables(m0)
+get_variables(m1)
 
 # Random intercepts
 # Warm
@@ -346,6 +346,18 @@ p_random <- full_df %>%
 pWord1 / p_random + plot_annotation(tag_levels = 'A')
 
 ggsave("figures/catch_curve_random.png", width = 5.5, height = 6.5, dpi = 600)
+
+
+# Testing stat_pointinterval plots median 
+# data(RankCorr_u_tau, package = "ggdist")
+# t <- RankCorr_u_tau %>% group_by(i) %>% mutate(median = median(u_tau),
+#                                                mean = mean(u_tau))
+# t %>%
+#   ggplot(aes(y = factor(i), x = u_tau)) +
+#   stat_pointinterval(.width = c(.66, .95)) +
+#   geom_point(aes(y = factor(i), x = mean), color = "red") +
+#   geom_point(aes(y = factor(i), x = median), color = "blue")
+
 
 
 ##### Model diagnostics & fit ======================================================
