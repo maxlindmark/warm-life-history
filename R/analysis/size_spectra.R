@@ -647,40 +647,51 @@ pWord1 <- p1 + theme(text = element_text(size = 12),
 
 # Now plot the posterior intercepts
 # lines manually simply by extracting the fixed effects
-m1_fe <- fixef(m1, probs = c(0.1, 0.9)) %>% as.data.frame()
+m1_fe <- fixef(m1, probs = seq(0, 1, by = 0.05)) %>% as.data.frame()
 posterior <- as.array(m1)
 dimnames(posterior)
 
 # Define matching palette
-pal2 <- alpha(pal, alpha = 0.8)
+# pal2 <- rev(alpha(pal, alpha = 0.8))
+# 
+# color_scheme_set(rep("white", 6)) # This is to be able to have a fill color with alpha
+# 
+# intercept_warm <- mcmc_dens(posterior, pars = c("b_area2Warm"),
+#                             facet_args = list(nrow = 2)) + 
+#   geom_density(fill = pal2[1], color = NA) + 
+#   geom_vline(xintercept = m1_fe$Estimate[2], linetype = 1, color = "white") +
+#   geom_vline(xintercept = m1_fe$Q10[2], linetype = 2, color = "white") +
+#   geom_vline(xintercept = m1_fe$Q90[2], linetype = 2, color = "white") +
+#   coord_cartesian(xlim = c(-4.2, -2.5)) + 
+#   labs(x = "", y = "") + 
+#   theme(axis.text.x = element_text(size = 6))
+# 
+# intercept_cold <- mcmc_dens(posterior, pars = c("b_area2Cold"),
+#                             facet_args = list(nrow = 2)) + 
+#   geom_density(fill = pal2[2], color = NA) + 
+#   geom_vline(xintercept = m1_fe$Estimate[1], linetype = 1, color = "white") +
+#   geom_vline(xintercept = m1_fe$Q10[1], linetype = 2, color = "white") +
+#   geom_vline(xintercept = m1_fe$Q90[1], linetype = 2, color = "white") +
+#   coord_cartesian(xlim = c(-4.2, -2.5)) + 
+#   labs(x = expression(italic(alpha)), y = "") +
+#   theme(axis.text.x = element_text(size = 6))
 
-color_scheme_set(rep("white", 6)) # This is to be able to have a fill color with alpha
+# http://mjskay.github.io/tidybayes/articles/tidy-brms.html
+post_inter <- m1 %>%
+  gather_draws(b_area2Cold, b_area2Warm) %>%
+  ggplot(aes(x = .value, fill = .variable, color = .variable)) +
+  stat_halfeye(alpha = 0.5, size = 15, .width = c(0.7)) +
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
+         color = FALSE) + 
+  scale_fill_manual(values = pal, labels = c("Cold", "Warm")) +
+  scale_color_manual(values = pal) +
+  labs(x = expression(italic(alpha)), fill = "") +
+  theme(legend.position = c(0.2, 0.9),
+        legend.key.size = unit(0.2, "cm"),
+        legend.background = element_blank())
 
-intercept_warm <- mcmc_dens(posterior, pars = c("b_area2Warm"),
-                            facet_args = list(nrow = 2)) + 
-  geom_density(fill = pal2[1], color = NA) + 
-  geom_vline(xintercept = m1_fe$Estimate[2], linetype = 1, color = "white") +
-  geom_vline(xintercept = m1_fe$Q10[2], linetype = 2, color = "white") +
-  geom_vline(xintercept = m1_fe$Q90[2], linetype = 2, color = "white") +
-  coord_cartesian(xlim = c(-4.2, -2.5)) + 
-  labs(x = "", y = "") + 
-  theme(text = element_text(size = 12)) 
-
-intercept_cold <- mcmc_dens(posterior, pars = c("b_area2Cold"),
-                            facet_args = list(nrow = 2)) + 
-  geom_density(fill = pal2[2], color = NA) + 
-  geom_vline(xintercept = m1_fe$Estimate[1], linetype = 1, color = "white") +
-  geom_vline(xintercept = m1_fe$Q10[1], linetype = 2, color = "white") +
-  geom_vline(xintercept = m1_fe$Q90[1], linetype = 2, color = "white") +
-  coord_cartesian(xlim = c(-4.2, -2.5)) + 
-  labs(x = expression(italic(alpha)), y = "") +
-  theme(text = element_text(size = 12))
-
-post_inter <- intercept_warm/intercept_cold
-
-
-pWord1 / (pWord0 + post_inter) +
-  #plot_layout(widths = c(3, 1)) +
+pWord1 / (post_inter | pWord0) +
+#  plot_layout(ncol = 2) +
   plot_annotation(tag_levels = "A")
 
 ggsave("figures/size_spec.png", width = 6.5, height = 6.5, dpi = 600)
