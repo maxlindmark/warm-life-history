@@ -677,20 +677,44 @@ dimnames(posterior)
 #   theme(axis.text.x = element_text(size = 6))
 
 # http://mjskay.github.io/tidybayes/articles/tidy-brms.html
+diff <- m1 %>%
+  spread_draws(b_area2Cold, b_area2Warm) %>%
+  mutate(diff = b_area2Warm - b_area2Cold) 
+
+prop_diff <- summarise(diff, Proportion_of_the_difference_below_0 = sum(diff < 0) / length(diff))
+
+# https://bookdown.org/content/3890/interactions.html
+post_diff <- m1 %>%
+  spread_draws(b_area2Cold, b_area2Warm) %>%
+  mutate(diff = b_area2Warm - b_area2Cold) %>% 
+  ggplot(aes(x = diff, fill = stat(x > 0))) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
+  scale_fill_manual(values = c("grey10", "grey70")) +
+  annotate("text", 0.85, 0.9, size = 3.5, label = paste("prop.x>0=", round(prop_diff, 2), sep = "")) +
+  labs(x = expression(~italic(alpha[warm])~-~italic(alpha[cold]))) +
+  theme(legend.position = c(0.2, 0.8),
+        legend.key.size = unit(0.2, "cm"),
+        legend.background = element_blank())
+
+post_diff
+
 post_inter <- m1 %>%
   gather_draws(b_area2Cold, b_area2Warm) %>%
   ggplot(aes(x = .value, fill = .variable, color = .variable)) +
-  stat_halfeye(alpha = 0.5, size = 15, .width = c(0.7)) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
          color = FALSE) + 
-  scale_fill_manual(values = pal, labels = c("Cold", "Warm")) +
-  scale_color_manual(values = pal) +
+  scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
+  scale_color_manual(values = rev(pal)) +
   labs(x = expression(italic(alpha)), fill = "") +
   theme(legend.position = c(0.2, 0.9),
         legend.key.size = unit(0.2, "cm"),
         legend.background = element_blank())
 
-pWord1 / (post_inter | pWord0) +
+post_inter
+
+pWord1 / ((post_inter/ post_diff) | pWord0) +
 #  plot_layout(ncol = 2) +
   plot_annotation(tag_levels = "A")
 

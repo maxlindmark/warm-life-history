@@ -610,7 +610,7 @@ post_K <-
   m1 %>%
   gather_draws(b_KC_Intercept, b_KW_Intercept) %>%
   ggplot(aes(x = .value, fill = .variable, color = .variable)) +
-  stat_halfeye(alpha = 0.5, size = 15, .width = c(0.7)) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
          color = FALSE) + 
   scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
@@ -624,24 +624,64 @@ post_L_inf <-
   m1 %>%
   gather_draws(b_LinfC_Intercept, b_LinfW_Intercept) %>%
   ggplot(aes(x = .value, fill = .variable, color = .variable)) +
-  stat_halfeye(alpha = 0.5, size = 15, .width = c(0.7)) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
   # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
   #        color = FALSE) +
   guides(fill = FALSE, color = FALSE) + 
   scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
   scale_color_manual(values = rev(pal)) +
-  labs(x = expression(paste(italic(L[inf]), " [cm]")), fill = "") +
+  labs(x = expression(paste(italic(L[infinity]), " [cm]")), fill = "") +
   theme(legend.position = c(0.9, 0.9),
         legend.key.size = unit(0.2, "cm"),
         legend.background = element_blank())
+
+
+# Plot distribution of differences
+# http://mjskay.github.io/tidybayes/articles/tidy-brms.html
+diff <- m1 %>%
+  spread_draws(b_LinfC_Intercept, b_LinfW_Intercept, b_KC_Intercept, b_KW_Intercept) %>%
+  mutate(diff_K = b_KW_Intercept - b_KC_Intercept,
+         diff_L_inf = b_LinfW_Intercept - b_LinfC_Intercept) 
+
+prop_diff_K <- summarise(diff, Proportion_of_the_difference_below_0 = sum(diff_K < 0) / length(diff_K))
+prop_diff_L_inf <- summarise(diff, Proportion_of_the_difference_below_0 = sum(diff_L_inf < 0) / length(diff_L_inf))
+
+# https://bookdown.org/content/3890/interactions.html
+post_diff_K <- ggplot(diff, aes(x = diff_K, fill = stat(x > 0))) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
+  scale_fill_manual(values = c("grey10", "grey70")) +
+  annotate("text", 0.12, 0.85, size = 3, label = paste("prop.x>0=", round(prop_diff_K, 2), sep = "")) +
+  labs(x = expression(~italic(K[warm])~-~italic(K[cold]))) +
+  theme(legend.position = c(0.2, 0.8),
+        legend.key.size = unit(0.2, "cm"),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 10),
+        legend.background = element_blank())
+
+post_diff_K
+
+post_diff_L_inf <- ggplot(diff, aes(x = diff_L_inf, fill = stat(x > 0))) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
+  scale_fill_manual(values = c("grey10", "grey70")) +
+  annotate("text", 25, 0.85, size = 3, label = paste("prop.x>0=", round(prop_diff_L_inf, 2), sep = "")) +
+  labs(x = expression(paste(~italic(L[infinity][warm])~-~italic(L[infinity][cold])))) +
+  theme(legend.position = c(0.15, 0.8),
+        legend.key.size = unit(0.2, "cm"),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 10),
+        legend.background = element_blank())
+
+post_diff_L_inf
 
 # Plotting all together
 # pWord1 / (Linf_warm + K_warm + Linf_cold + K_cold) +
 #   plot_layout(heights = c(2, 1)) +
 #   plot_annotation(tag_levels = 'A')
 
-pWord1 / (post_K + post_L_inf) +
-  plot_layout(heights = c(2, 1)) +
+pWord1 / ((post_K/post_diff_K) | (post_L_inf/post_diff_L_inf)) +
+  plot_layout(heights = c(1.2, 1)) +
   plot_annotation(tag_levels = 'A')
 
 ggsave("figures/vbge_pred_K_Linf_post.png", width = 6.5, height = 6.5, dpi = 600)

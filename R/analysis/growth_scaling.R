@@ -326,7 +326,7 @@ hist(rnorm(n = 10000, mean = 500, sd = 100))
 hist(rnorm(n = 10000, mean = -1.5, sd = 1))
 
 # m3 ===============================================================================
-# m3 has all parameters in common 
+# m3 has all parameters unique 
 
 # Define priors
 prior3 <-
@@ -505,8 +505,8 @@ p1 <- dfm_dummy %>%
          color = guide_legend(override.aes = list(linetype = 0, size = 3, shape = 16, alpha = 0.5))) +
   labs(y = expression(paste("Growth [%", yr^-1, "]")),
        x = "Length [cm]", fill = "Area", colour = "Area") +
-  annotate("text", 35, 36, label = paste("n=", nrow(dfm), sep = ""), size = 3.5) +
-  annotate("text", 35, 33, size = 3.5, color = pal[1],
+  annotate("text", 35, 40, label = paste("n=", nrow(dfm), sep = ""), size = 3.5) +
+  annotate("text", 35, 35, size = 3.5, color = pal[1],
            label = expression(paste("y=433.54×", length^-1.18))) + # Cold
   annotate("text", 35, 30, size = 3.5, color = pal[2],
            label = expression(paste("y=510.73×", length^-1.13))) + # Warm
@@ -519,62 +519,86 @@ pWord1 <- p1 + theme(text = element_text(size = 12),
                      legend.title = element_text(size = 10),
                      legend.text = element_text(size = 10))
 
+# http://mjskay.github.io/tidybayes/articles/tidy-brms.html
+post_b1 <- 
+  m3s %>%
+  gather_draws(b_b1C_Intercept, b_b1W_Intercept) %>%
+  ggplot(aes(x = .value, fill = .variable, color = .variable)) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
+         color = FALSE) + 
+  scale_fill_manual(values = pal, labels = c("Cold", "Warm")) +
+  scale_color_manual(values = pal) +
+  labs(x = expression(paste(italic(b)[1])), fill = "") +
+  theme(legend.position = c(0.9, 0.9),
+        legend.key.size = unit(0.2, "cm"),
+        legend.background = element_blank())
+
+post_b2 <- 
+  m3s %>%
+  gather_draws(b_b2C_Intercept, b_b2W_Intercept) %>%
+  ggplot(aes(x = .value, fill = .variable, color = .variable)) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
+  # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
+  #        color = FALSE) +
+  guides(fill = FALSE, color = FALSE) + 
+  scale_fill_manual(values = pal, labels = c("Cold", "Warm")) +
+  scale_color_manual(values = pal) +
+  labs(x = expression(paste(italic(b)[2])), fill = "") +
+  theme(legend.position = c(0.9, 0.9),
+        legend.key.size = unit(0.2, "cm"),
+        legend.background = element_blank())
+
+
+# Plot distribution of differences
+# http://mjskay.github.io/tidybayes/articles/tidy-brms.html
+diff <- m3s %>%
+  spread_draws(b_b1C_Intercept, b_b1W_Intercept, b_b2C_Intercept, b_b2W_Intercept) %>%
+  mutate(diff_b1 = b_b1W_Intercept - b_b1C_Intercept,
+         diff_b2 = b_b2W_Intercept - b_b2C_Intercept) 
+
+prop_diff_b1 <- summarise(diff, Proportion_of_the_difference_below_0 = sum(diff_b1 < 0) / length(diff_b1))
+prop_diff_b2 <- summarise(diff, Proportion_of_the_difference_below_0 = sum(diff_b2 < 0) / length(diff_b2))
+
+# https://bookdown.org/content/3890/interactions.html
+post_diff_b1 <- ggplot(diff, aes(x = diff_b1, fill = stat(x > 0))) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
+  scale_fill_manual(values = c("grey10", "grey70")) +
+  annotate("text", 140, 0.85, size = 3, label = paste("prop.x>0=", round(prop_diff_b1, 3), sep = "")) +
+  labs(x = expression(~italic(b[1][warm])~-~italic(b[1][cold]))) +
+  theme(legend.position = c(0.2, 0.8),
+        legend.key.size = unit(0.2, "cm"),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 10),
+        legend.background = element_blank())
+
+post_diff_b1
+
+post_diff_b2 <- ggplot(diff, aes(x = diff_b2, fill = stat(x > 0))) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
+  scale_fill_manual(values = c("grey10", "grey70")) +
+  annotate("text", 0.07, 0.85, size = 3, label = paste("prop.x>0=", round(prop_diff_b2, 3), sep = "")) +
+  labs(x = expression(~italic(b[2][warm])~-~italic(b[2][cold]))) +
+  theme(legend.position = c(0.15, 0.8),
+        legend.key.size = unit(0.2, "cm"),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 10),
+        legend.background = element_blank())
+
+post_diff_b2
+
+# Plotting all together
+# pWord1 / (Linf_warm + K_warm + Linf_cold + K_cold) +
+#   plot_layout(heights = c(2, 1)) +
+#   plot_annotation(tag_levels = 'A')
+
+pWord1 / ((post_b1/post_diff_b1) | (post_b2/post_diff_b2)) +
+  plot_layout(heights = c(1.2, 1)) +
+  plot_annotation(tag_levels = 'A')
+
 ggsave("figures/growth_pred.png", width = 6.5, height = 6.5, dpi = 600)
-
-# Plot the posteriors of the coefficients
-# Plotting mcmc_dens and use patchwork to plot them together. Note I add the vertical
-# lines manually simply by extracting the fixed effects
-m3s_fe <- fixef(m3s, probs = c(0.1, 0.9)) %>% as.data.frame()
-posterior <- as.array(m3s)
-
-# Define matching palette
-pal2 <- alpha(pal, alpha = 0.8)
-
-color_scheme_set(rep("white", 6)) # This is to be able to have a fill color with alpha
-
-b1_warm <- mcmc_dens(posterior, pars = c("b_b1W_Intercept"),
-                       facet_args = list(nrow = 2)) + 
-  geom_density(fill = pal2[2], color = NA) + 
-  geom_vline(xintercept = m3s_fe$Estimate[1], linetype = 1, color = "white") +
-  geom_vline(xintercept = m3s_fe$Q10[1], linetype = 2, color = "white") +
-  geom_vline(xintercept = m3s_fe$Q90[1], linetype = 2, color = "white") +
-  coord_cartesian(xlim = c(390, 640)) + 
-  labs(x = "", y = "") + 
-  theme(text = element_text(size = 12)) 
-
-b1_cold <- mcmc_dens(posterior, pars = c("b_b1C_Intercept"),
-                       facet_args = list(nrow = 2)) + 
-  geom_density(fill = pal2[1], color = NA) + 
-  geom_vline(xintercept = m3s_fe$Estimate[2], linetype = 1, color = "white") +
-  geom_vline(xintercept = m3s_fe$Q10[2], linetype = 2, color = "white") +
-  geom_vline(xintercept = m3s_fe$Q90[2], linetype = 2, color = "white") +
-  coord_cartesian(xlim = c(390, 640)) + 
-  labs(x = expression(italic(b[1])), y = "") +
-  theme(text = element_text(size = 12))
-
-b2_warm <- mcmc_dens(posterior, pars = c("b_b2W_Intercept"),
-                    facet_args = list(nrow = 2)) + 
-  geom_density(fill = pal2[2], color = NA) + 
-  geom_vline(xintercept = m3s_fe$Estimate[3], linetype = 1, color = "white") +
-  geom_vline(xintercept = m3s_fe$Q10[3], linetype = 2, color = "white") +
-  geom_vline(xintercept = m3s_fe$Q90[3], linetype = 2, color = "white") +
-  coord_cartesian(xlim = c(-1.2, -1.07)) +
-  xlab("") + 
-  theme(text = element_text(size = 12)) 
-
-b2_cold <- mcmc_dens(posterior, pars = c("b_b2C_Intercept"),
-                    facet_args = list(nrow = 2)) + 
-  geom_density(fill = pal2[1], color = NA) + 
-  geom_vline(xintercept = m3s_fe$Estimate[4], linetype = 1, color = "white") +
-  geom_vline(xintercept = m3s_fe$Q10[4], linetype = 2, color = "white") +
-  geom_vline(xintercept = m3s_fe$Q90[4], linetype = 2, color = "white") +
-  coord_cartesian(xlim = c(-1.2, -1.07)) +
-  labs(x = expression(italic(b[2])), y = "") +
-  theme(text = element_text(size = 12))
-
-(b1_warm + b2_warm + b1_cold + b2_cold) + plot_annotation(tag_levels = 'A')
-
-ggsave("figures/supp/growth_posteriors.png", width = 6.5, height = 6.5, dpi = 600)
 
 
 ##### Model diagnostics & fit ======================================================
