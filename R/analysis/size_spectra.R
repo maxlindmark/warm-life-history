@@ -691,7 +691,7 @@ post_diff <- m1 %>%
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
   scale_fill_manual(values = c("grey10", "grey70")) +
-  annotate("text", 0.85, 0.9, size = 3.5, label = paste("prop.x>0=", round(prop_diff, 2), sep = "")) +
+  annotate("text", 0.72, 0.9, size = 3.5, label = paste("prop.x>0=", round(prop_diff, 2), sep = "")) +
   labs(x = expression(~italic(alpha[warm])~-~italic(alpha[cold]))) +
   theme(legend.position = c(0.2, 0.8),
         legend.key.size = unit(0.2, "cm"),
