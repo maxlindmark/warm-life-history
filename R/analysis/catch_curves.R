@@ -147,6 +147,7 @@ d <- df4 %>%
 
 # C. FIT MODELS ====================================================================
 ##### Catch curves =================================================================
+# See this for notation: https://solomonkurz.netlify.app/post/2020-12-09-multilevel-models-and-the-index-variable-approach/ 
 # Fitting models of log catch ~ age with interactive or additive effects of area, 
 # using catch year as a random effect
 

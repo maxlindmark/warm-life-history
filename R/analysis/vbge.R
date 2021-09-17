@@ -651,7 +651,7 @@ post_diff_K <- ggplot(diff, aes(x = diff_K, fill = stat(x > 0))) +
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
   scale_fill_manual(values = c("grey10", "grey70")) +
-  annotate("text", 0.12, 0.85, size = 3, label = paste("prop.x>0=", round(prop_diff_K, 2), sep = "")) +
+  annotate("text", 0.11, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_K, 2), sep = "")) +
   labs(x = expression(~italic(K[warm])~-~italic(K[cold]))) +
   theme(legend.position = c(0.2, 0.8),
         legend.key.size = unit(0.2, "cm"),
@@ -665,7 +665,7 @@ post_diff_L_inf <- ggplot(diff, aes(x = diff_L_inf, fill = stat(x > 0))) +
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
   scale_fill_manual(values = c("grey10", "grey70")) +
-  annotate("text", 25, 0.85, size = 3, label = paste("prop.x>0=", round(prop_diff_L_inf, 2), sep = "")) +
+  annotate("text", 22, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_L_inf, 2), sep = "")) +
   labs(x = expression(paste(~italic(L[infinity][warm])~-~italic(L[infinity][cold])))) +
   theme(legend.position = c(0.15, 0.8),
         legend.key.size = unit(0.2, "cm"),

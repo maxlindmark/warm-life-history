@@ -644,7 +644,6 @@ pWord1 <- p1 + theme(text = element_text(size = 12),
                      legend.text = element_text(size = 10),
                      legend.key = element_blank())
 
-
 # Now plot the posterior intercepts
 # lines manually simply by extracting the fixed effects
 m1_fe <- fixef(m1, probs = seq(0, 1, by = 0.05)) %>% as.data.frame()
@@ -691,13 +690,38 @@ post_diff <- m1 %>%
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
   scale_fill_manual(values = c("grey10", "grey70")) +
-  annotate("text", 0.72, 0.9, size = 3.5, label = paste("prop.x>0=", round(prop_diff, 2), sep = "")) +
+  annotate("text", 0.72, 0.95, size = 3.5, label = paste("prop. diff<0=", round(prop_diff, 2), sep = "")) +
   labs(x = expression(~italic(alpha[warm])~-~italic(alpha[cold]))) +
   theme(legend.position = c(0.2, 0.8),
         legend.key.size = unit(0.2, "cm"),
         legend.background = element_blank())
 
 post_diff
+
+# This is the same as in here: https://bookdown.org/content/3890/interactions.html
+# Which is also the same as in stat rethink v1
+# TEST
+# test <- posterior_samples(m1, pars = c("b_area2Cold", "b_area2Warm"))
+# t1 <- test %>%
+#   gather(key, value) %>%
+#   ggplot(aes(x = value, group = key, color = key, fill = key)) +
+#   geom_density(alpha = 1/4) +
+#   theme(text = element_text(family = "Times"),
+#         legend.position = "none") +
+#   coord_cartesian(expand = 0)
+# 
+# test %>%
+#   mutate(diff = b_area2Warm -b_area2Cold) %>%
+#   summarise(Proportion_of_the_difference_below_0 = sum(diff < 0) / length(diff))
+# 
+# t2 <- test %>%
+#   mutate(diff = b_area2Warm -b_area2Cold) %>%
+#   ggplot(aes(x = diff)) +
+#   geom_density(alpha = 1/4) +
+#   geom_vline(xintercept = 0) +
+#   coord_cartesian(expand = 0)
+# 
+# t1 / t2
 
 post_inter <- m1 %>%
   gather_draws(b_area2Cold, b_area2Warm) %>%
@@ -708,14 +732,13 @@ post_inter <- m1 %>%
   scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
   scale_color_manual(values = rev(pal)) +
   labs(x = expression(italic(alpha)), fill = "") +
-  theme(legend.position = c(0.2, 0.9),
+  theme(legend.position = c(0.15, 0.9),
         legend.key.size = unit(0.2, "cm"),
         legend.background = element_blank())
 
 post_inter
 
 pWord1 / ((post_inter/ post_diff) | pWord0) +
-#  plot_layout(ncol = 2) +
   plot_annotation(tag_levels = "A")
 
 ggsave("figures/size_spec.png", width = 6.5, height = 6.5, dpi = 600)

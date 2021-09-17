@@ -505,8 +505,8 @@ p1 <- dfm_dummy %>%
          color = guide_legend(override.aes = list(linetype = 0, size = 3, shape = 16, alpha = 0.5))) +
   labs(y = expression(paste("Growth [%", yr^-1, "]")),
        x = "Length [cm]", fill = "Area", colour = "Area") +
-  annotate("text", 35, 40, label = paste("n=", nrow(dfm), sep = ""), size = 3.5) +
-  annotate("text", 35, 35, size = 3.5, color = pal[1],
+  annotate("text", 35, 42, label = paste("n=", nrow(dfm), sep = ""), size = 3.5) +
+  annotate("text", 35, 36, size = 3.5, color = pal[1],
            label = expression(paste("y=433.54×", length^-1.18))) + # Cold
   annotate("text", 35, 30, size = 3.5, color = pal[2],
            label = expression(paste("y=510.73×", length^-1.13))) + # Warm
@@ -524,7 +524,7 @@ post_b1 <-
   m3s %>%
   gather_draws(b_b1C_Intercept, b_b1W_Intercept) %>%
   ggplot(aes(x = .value, fill = .variable, color = .variable)) +
-  stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = c(0.9)) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
          color = FALSE) + 
   scale_fill_manual(values = pal, labels = c("Cold", "Warm")) +
@@ -538,7 +538,7 @@ post_b2 <-
   m3s %>%
   gather_draws(b_b2C_Intercept, b_b2W_Intercept) %>%
   ggplot(aes(x = .value, fill = .variable, color = .variable)) +
-  stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = c(0.9)) +
   # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
   #        color = FALSE) +
   guides(fill = FALSE, color = FALSE) + 
@@ -549,8 +549,8 @@ post_b2 <-
         legend.key.size = unit(0.2, "cm"),
         legend.background = element_blank())
 
-
-# Plot distribution of differences
+# Plot distribution of differences: see statistical rethinging 2 p.157 and:
+# https://bookdown.org/content/3890/interactions.html 
 # http://mjskay.github.io/tidybayes/articles/tidy-brms.html
 diff <- m3s %>%
   spread_draws(b_b1C_Intercept, b_b1W_Intercept, b_b2C_Intercept, b_b2W_Intercept) %>%
@@ -565,7 +565,7 @@ post_diff_b1 <- ggplot(diff, aes(x = diff_b1, fill = stat(x > 0))) +
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
   scale_fill_manual(values = c("grey10", "grey70")) +
-  annotate("text", 140, 0.85, size = 3, label = paste("prop.x>0=", round(prop_diff_b1, 3), sep = "")) +
+  annotate("text", 140, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_b1, 3), sep = "")) +
   labs(x = expression(~italic(b[1][warm])~-~italic(b[1][cold]))) +
   theme(legend.position = c(0.2, 0.8),
         legend.key.size = unit(0.2, "cm"),
@@ -579,7 +579,7 @@ post_diff_b2 <- ggplot(diff, aes(x = diff_b2, fill = stat(x > 0))) +
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
   scale_fill_manual(values = c("grey10", "grey70")) +
-  annotate("text", 0.07, 0.85, size = 3, label = paste("prop.x>0=", round(prop_diff_b2, 3), sep = "")) +
+  annotate("text", 0.07, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_b2, 3), sep = "")) +
   labs(x = expression(~italic(b[2][warm])~-~italic(b[2][cold]))) +
   theme(legend.position = c(0.15, 0.8),
         legend.key.size = unit(0.2, "cm"),
