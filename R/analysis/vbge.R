@@ -99,6 +99,7 @@ dfm$log_length_cm <- log(dfm$length_cm)
 # Change age to integer
 dfm$age <- as.integer(dfm$age)
 
+min(dfm$age) 
 
 # C. FIT MODELS ====================================================================
 # Here are some guides I followed
@@ -165,13 +166,10 @@ p0 <- dfm %>%
   add_predicted_draws(M0fmbt, re_formula = NA) %>%
   ggplot(aes(x = factor(age), y = length_cm)) +
   stat_lineribbon(aes(y = .prediction), .width = c(.8), alpha = 0.2) +
-  geom_jitter(data = dfm, aes(age, length_cm, color = area),
-              alpha = 0.2, width = 0.3, height = 0, size = 0.8) +
   stat_lineribbon(aes(y = .prediction), .width = c(.8), alpha = 0.8, fill = NA,
                   color = "black") +
   guides(fill = FALSE, color = guide_legend(override.aes = list(alpha = 1))) +
-  scale_color_manual(values = pal, labels = c("Warm", "Cold")) +
-  labs(y = "Length [cm]", x = "Age [yrs]", fill = "Area", colour = "Area") +
+  labs(y = "Length [cm]", x = "Age [yrs]") +
   NULL
 
 pWord0 <- p0 + theme(text = element_text(size = 12), 
@@ -507,13 +505,13 @@ loo_m8 <- loo(m8)
 loo_compare(loo_m1, loo_m2, loo_m3, loo_m4, loo_m5, loo_m6, loo_m7, loo_m8)
 # elpd_diff se_diff
 # m1     0.0       0.0
-# m4    -8.9       5.1
-# m2  -104.3      21.5
-# m3  -127.9      24.8
-# m7  -140.3      24.6
-# m6  -181.1      26.0
-# m5  -789.1      50.2
-# m8 -1617.7      68.4
+# m4    -9.9       5.1
+# m2  -103.5      21.5
+# m3  -128.0      24.8
+# m7  -141.0      24.6
+# m6  -181.6      25.9
+# m5  -789.8      50.2
+# m8 -1617.9      68.4
 
 # Using model 1
 

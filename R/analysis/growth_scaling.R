@@ -255,6 +255,9 @@ dfm %>%
 dfm %>% group_by(area) %>% summarise(n = n())
 dfm %>% group_by(area) %>% distinct(ID) %>% summarise(n = n())
 
+# Average number of data points per individual?
+dfm %>% group_by(ID) %>% summarise(n = n()) %>% ungroup() %>% summarize(mean_n = mean(n))
+
 # Now plot full data.
 dfm %>% 
   ggplot(., aes(x = log_length, y = log_growth, color = ID)) +
@@ -264,6 +267,9 @@ dfm %>%
   scale_color_viridis(discrete = T, direction = -1) + 
   guides(color = FALSE) +
   NULL
+
+# Check unique years
+dfm %>% group_by(area, catch_year) %>% summarise(catch_year = (unique(catch_year))) %>% data.frame()
 
 
 # C. FIT MODELS ====================================================================
@@ -325,16 +331,50 @@ ggplot(dfm_dummy, aes(length, growth, color = area2)) +
 hist(rnorm(n = 10000, mean = 500, sd = 100))
 hist(rnorm(n = 10000, mean = -1.5, sd = 1))
 
-# m3 ===============================================================================
-# m3 has all parameters unique 
-
+# Simulate from the prior predictive distribution
+# M0: Prior predictive check: Warm+Cold merged =====================================
 # Define priors
+prior0 <-
+  prior(normal(500, 100), nlpar = "b1") +
+  prior(normal(-1.5, 1), nlpar = "b2")
+  
+M0fmbt <- brm(
+  bf(growth ~ b1*length^b2, 
+  b1 ~ 1, b2 ~ 1, nl = TRUE),
+  data = dfm_dummy, family = student(),
+  prior = prior0,
+  sample_prior = "only", 
+  iter = 4000, thin = 1, cores = 3, chains = 3, seed = 9)
+
+pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
+
+p0 <- dfm_dummy %>% 
+  data_grid(length = seq_range(length, n = 101)) %>%
+  add_predicted_draws(M0fmbt, re_formula = NA) %>%
+  ggplot(aes(x = length, y = growth)) +
+  stat_lineribbon(aes(y = .prediction), .width = c(.8), alpha = 0.2) +
+  stat_lineribbon(aes(y = .prediction), .width = c(.8), alpha = 0.8, fill = NA,
+                  color = "black") +
+  guides(fill = FALSE, color = guide_legend(override.aes = list(alpha = 1))) +
+  labs(y = expression(paste("Growth [%", yr^-1, "]")), x = "Length [cm]") +
+  NULL
+
+pWord0 <- p0 + theme(text = element_text(size = 12), 
+                     legend.position = c(0.1, 0.9), 
+                     legend.title = element_text(size = 10),
+                     legend.text = element_text(size = 10))
+
+ggsave("figures/supp/growth_prior_pred_check.png", width = 6.5, height = 6.5, dpi = 600)
+
+
+# m3 ===============================================================================
 prior3 <-
   prior(normal(500, 100), nlpar = "b1W") +
   prior(normal(500, 100), nlpar = "b1C") +
   prior(normal(-1.5, 1), nlpar = "b2W") +
   prior(normal(-1.5, 1), nlpar = "b2C")
 
+# m3 has all parameters unique 
 # Start the clock!
 # ptm <- proc.time()
 # m3 <- brm(bf(growth ~ areaW*b1W*length^b2W + areaC*b1C*length^b2C, 
@@ -499,7 +539,7 @@ p1 <- dfm_dummy %>%
   add_predicted_draws(m3s, re_formula = NA) %>%
   ggplot(aes(x = length, y = growth, color = area2, fill = area2)) +
   stat_lineribbon(aes(y = .prediction), .width = c(.90), alpha = 1/4) +
-  geom_point(data = dfm_dummy, alpha = 0.1, size = 0.8) +
+  geom_point(data = dfm_dummy, alpha = 0.05, size = 0.8) +
   stat_lineribbon(aes(y = .prediction), .width = 0, alpha = 0.8) +
   scale_fill_manual(values = pal) +
   scale_color_manual(values = pal) +
@@ -531,7 +571,7 @@ post_b1 <-
          color = FALSE) + 
   scale_fill_manual(values = pal, labels = c("Cold", "Warm")) +
   scale_color_manual(values = pal) +
-  labs(x = expression(paste(italic(b)[1])), fill = "") +
+  labs(x = expression(italic(alpha)), fill = "") +
   theme(legend.position = c(0.9, 0.9),
         legend.key.size = unit(0.2, "cm"),
         legend.background = element_blank())
@@ -546,7 +586,7 @@ post_b2 <-
   guides(fill = FALSE, color = FALSE) + 
   scale_fill_manual(values = pal, labels = c("Cold", "Warm")) +
   scale_color_manual(values = pal) +
-  labs(x = expression(paste(italic(b)[2])), fill = "") +
+  labs(x = expression(italic(beta)), fill = "") +
   theme(legend.position = c(0.9, 0.9),
         legend.key.size = unit(0.2, "cm"),
         legend.background = element_blank())
@@ -568,7 +608,7 @@ post_diff_b1 <- ggplot(diff, aes(x = diff_b1, fill = stat(x > 0))) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
   scale_fill_manual(values = c("grey10", "grey70")) +
   annotate("text", 140, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_b1, 3), sep = "")) +
-  labs(x = expression(~italic(b[1][warm])~-~italic(b[1][cold]))) +
+  labs(x = expression(~italic(alpha[warm])~-~italic(alpha[cold]))) +
   theme(legend.position = c(0.2, 0.8),
         legend.key.size = unit(0.2, "cm"),
         legend.text = element_text(size = 8),
@@ -582,7 +622,7 @@ post_diff_b2 <- ggplot(diff, aes(x = diff_b2, fill = stat(x > 0))) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
   scale_fill_manual(values = c("grey10", "grey70")) +
   annotate("text", 0.07, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_b2, 3), sep = "")) +
-  labs(x = expression(~italic(b[2][warm])~-~italic(b[2][cold]))) +
+  labs(x = expression(~italic(beta[warm])~-~italic(beta[cold]))) +
   theme(legend.position = c(0.15, 0.8),
         legend.key.size = unit(0.2, "cm"),
         legend.text = element_text(size = 8),

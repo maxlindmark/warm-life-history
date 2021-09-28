@@ -144,6 +144,8 @@ d <- df4 %>%
   mutate(keep = ifelse(area == "BT" & year == 1996, "N", "Y")) %>% 
   filter(keep == "Y")
 
+d %>% group_by(area, year) %>% summarise(year = (unique(year))) %>% data.frame()
+
 
 # C. FIT MODELS ====================================================================
 ##### Catch curves =================================================================
@@ -154,7 +156,8 @@ d <- df4 %>%
 # Edit variables
 d <- d %>%
   mutate(log_cpue = log(cpue_numbers),
-         area2 = ifelse(area == "BT", "Warm", "Cold"))
+         area2 = ifelse(area == "BT", "Warm", "Cold"),
+         cohort = year - age) 
 
 # Random intercepts only because of better convergence (posteriors of random year slopes looking funny)
 # m1 <- brm(log_cpue ~ -1 + age * area2 + (0 + area2|year),
@@ -168,6 +171,7 @@ prior0 <-
 # No random slopes (same slopes for all years, but still area-specific)
 m0 <- brm(
   log_cpue ~ -1 + age * area2 + (0 + area2||year),          
+  #log_cpue ~ -1 + age * area2 + (0 + area2||cohort),          
   family = student(), data = d, iter = 4000, cores = 3, chains = 3,
   seed = 9,
   save_pars = save_pars(all = TRUE),
@@ -181,6 +185,7 @@ loo_m0 <- loo(m0, moment_match = TRUE)
 # Area-specific slopes that also vary by year (uncorrelated random effects)
 m1 <- brm(
   log_cpue ~ -1 + age * area2 + (0 + area2*age||year),
+  #log_cpue ~ -1 + age * area2 + (0 + area2*age||cohort),
   family = student(), data = d, iter = 4000, cores = 3, chains = 3,
   seed = 9,
   save_pars = save_pars(all = TRUE),
@@ -195,12 +200,14 @@ loo_m1 <- loo(m1, moment_match = TRUE)
 plot(loo_m1, diagnostic = c("k", "n_eff"), label_points = TRUE)
 
 # Area-specific slopes that also vary by year (correlated random effects)
-m1b <- brm(log_cpue ~ -1 + age * area2 + (0 + area2*age||year),
-           family = student(), data = d, iter = 4000, cores = 3, chains = 3,
-           seed = 9,
-           save_pars = save_pars(all = TRUE),
-           control = list(adapt_delta = 0.99),
-           prior = prior0)
+m1b <- brm(
+  log_cpue ~ -1 + age * area2 + (0 + area2*age||year),
+  #log_cpue ~ -1 + age * area2 + (0 + area2*age||cohort),
+  family = student(), data = d, iter = 4000, cores = 3, chains = 3,
+  seed = 9,
+  save_pars = save_pars(all = TRUE),
+  control = list(adapt_delta = 0.99),
+  prior = prior0)
 
 summary(m1b)
 loo_m1b <- loo(m1b, moment_match = TRUE)
@@ -209,7 +216,10 @@ loo_m1b <- loo(m1b, moment_match = TRUE)
 plot(loo_m1b, diagnostic = c("k", "n_eff"), label_points = TRUE)
 
 loo_compare(loo_m0, loo_m1, loo_m1b)
-
+# elpd_diff se_diff
+# m1    0.0       0.0  
+# m1b   0.0       0.0  
+# m0  -12.3       4.3 
 
 # D. PRODUCE FIGURES ===============================================================
 ##### Plot Predictions =============================================================

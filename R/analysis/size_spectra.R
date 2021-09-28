@@ -203,23 +203,23 @@ for(iii in 1:length(fullYears))
     xmax_FM = max(dataBin_FM_loop$wmax)
 
     FM_spectra_one_year  = calcLike(negLL.fn = negLL.PLB.bins.species,
-                                  p = -1.5,
-                                  suppress.warnings = FALSE,
-                                  vecDiff = 2, # Default is 0.5, I get warning thogh
-                                  dataBinForLike = dataBin_FM_loop,
-                                  n = n_FM,
-                                  xmin = xmin_FM,
-                                  xmax = xmax_FM)
+                                    p = -1.5,
+                                    suppress.warnings = FALSE,
+                                    vecDiff = 2, # Default is 0.5, I get warning thogh
+                                    dataBinForLike = dataBin_FM_loop,
+                                    n = n_FM,
+                                    xmin = xmin_FM,
+                                    xmax = xmax_FM)
     
     if(iii == 1)
     {
       FM_spectra = data.frame(Year = fullYears[iii],
-                            xmin = xmin_FM,
-                            xmax = xmax_FM,
-                            n = n_FM,
-                            b = FM_spectra_one_year$MLE,
-                            confMin = FM_spectra_one_year$conf[1],
-                            confMax = FM_spectra_one_year$conf[2])
+                              xmin = xmin_FM,
+                              xmax = xmax_FM,
+                              n = n_FM,
+                              b = FM_spectra_one_year$MLE,
+                              confMin = FM_spectra_one_year$conf[1],
+                              confMax = FM_spectra_one_year$conf[2])
     } else {
       FM_spectra = rbind(FM_spectra,
                        c(fullYears[iii],
@@ -485,8 +485,8 @@ spectra <- spectra %>%
 # https://vasishth.github.io/Freq_CogSci/from-the-paired-t-test-to-the-linear-mixed-model.html
 # No year effect
 prior0 <-
-  prior(normal(3, 10), class = "b", coef = area2Cold) +
-  prior(normal(3, 10), class = "b", coef = area2Warm) +
+  prior(normal(-2, 10), class = "b", coef = area2Cold) +
+  prior(normal(-2, 10), class = "b", coef = area2Warm) +
   prior(student_t(3, 0, 2.5), class = "sigma")
 
 m0 <- brm(b ~ -1 + area2,
@@ -501,8 +501,8 @@ plot(m0)
 
 # Add year as predictor
 prior1 <-
-  prior(normal(3, 10), class = "b", coef = area2Cold) +
-  prior(normal(3, 10), class = "b", coef = area2Warm) +
+  prior(normal(-2, 10), class = "b", coef = area2Cold) +
+  prior(normal(-2, 10), class = "b", coef = area2Warm) +
   prior(normal(0, 10), class = "b", coef = Year_ct) +
   prior(student_t(3, 0, 2.5), class = "sigma")
 
@@ -519,8 +519,8 @@ plot(m1)
 
 # Interaction between year and area
 prior2 <-
-  prior(normal(3, 10), class = "b", coef = area2Cold) +
-  prior(normal(3, 10), class = "b", coef = area2Warm) +
+  prior(normal(-2, 10), class = "b", coef = area2Cold) +
+  prior(normal(-2, 10), class = "b", coef = area2Warm) +
   prior(normal(0, 10), class = "b", coef = area2Warm:Year_ct) +
   prior(normal(0, 10), class = "b", coef = Year_ct) +
   prior(student_t(3, 0, 2.5), class = "sigma")
@@ -543,8 +543,8 @@ loo_m2 <- loo(m2, moment_match = TRUE)
 loo_compare(loo_m0, loo_m1, loo_m2)
 # elpd_diff se_diff
 # m1  0.0       0.0   
-# m2 -1.3       0.4   
-# m0 -8.8       4.2
+# m2 -1.1       0.4   
+# m0 -8.7       4.2
 
 
 # E. PRODUCE FIGURES ===============================================================
@@ -635,7 +635,7 @@ p1 <- spectra %>%
   annotate("text", 15, -4.4, size = 3.5, color = pal[2],
            label = "y=-3.50 + 0.08×year") + # Cold
   annotate("text", 15, -4.6, size = 3.5, color = pal[1],
-           label = "y=-3.12 + 0.08×year") + # Warm
+           label = "y=-3.13 + 0.08×year") + # Warm
   NULL
   
 pWord1 <- p1 + theme(text = element_text(size = 12), 
