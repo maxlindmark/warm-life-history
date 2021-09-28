@@ -154,7 +154,7 @@ M0fmbt <- brm(
             prior(normal(-0.5, 1), nlpar = "t0"),
             prior("uniform(0, 0.6)", nlpar = "K", lb = 0, ub = 0.6)),
             sample_prior = "only", 
-  iter = 2000, thin = 1, cores = 3, chains = 3, seed = 1)
+  iter = 4000, thin = 1, cores = 3, chains = 3, seed = 9)
 
 plot(conditional_effects(M0fmbt), points = TRUE)
 
@@ -207,7 +207,8 @@ m1 <-
     data = dfm,
     family = student(),
     prior = prior,
-    iter = 3000, thin = 1, cores = 3, chains = 3, inits = "0",
+    seed = 9, 
+    iter = 4000, thin = 1, cores = 3, chains = 3, inits = "0",
     control = list(max_treedepth = 13, adapt_delta = 0.9))
 end_time <- Sys.time()
 end_time - start_time
@@ -217,7 +218,7 @@ summary(m1)
 plot(m1)
 
 # Save model object to not have to rerun it...
-#saveRDS(m1, "output/vbge/m1.rds")
+saveRDS(m1, "output/vbge/m1.rds")
 #m1 <- readRDS("output/vbge/m1.rds")
 
 # > prior_summary(m1)
@@ -271,7 +272,8 @@ m2 <-
     data = dfm,
     family = student(),
     prior = prior2,
-    iter = 3000, thin = 1, cores = 3, chains = 3, inits = "0",
+    seed = 9, 
+    iter = 4000, thin = 1, cores = 3, chains = 3, inits = "0",
     control = list(max_treedepth = 13, adapt_delta = 0.9))
 end_time <- Sys.time()
 end_time - start_time
@@ -306,7 +308,8 @@ m3 <-
     data = dfm,
     family = student(),
     prior = prior3,
-    iter = 3000, thin = 1, cores = 3, chains = 3, inits = "0",
+    seed = 9, 
+    iter = 4000, thin = 1, cores = 3, chains = 3, inits = "0",
     control = list(max_treedepth = 13, adapt_delta = 0.9))
 end_time <- Sys.time()
 end_time - start_time
@@ -341,7 +344,8 @@ m4 <-
     data = dfm,
     family = student(),
     prior = prior4,
-    iter = 3000, thin = 1, cores = 3, chains = 3, inits = "0",
+    seed = 9, 
+    iter = 4000, thin = 1, cores = 3, chains = 3, inits = "0",
     control = list(max_treedepth = 13, adapt_delta = 0.9))
 end_time <- Sys.time()
 end_time - start_time
@@ -374,7 +378,8 @@ m5 <-
     data = dfm,
     family = student(),
     prior = prior5,
-    iter = 3000, thin = 1, cores = 3, chains = 3, inits = "0",
+    seed = 9, 
+    iter = 4000, thin = 1, cores = 3, chains = 3, inits = "0",
     control = list(max_treedepth = 13, adapt_delta = 0.9))
 end_time <- Sys.time()
 end_time - start_time
@@ -407,7 +412,8 @@ m6 <-
     data = dfm,
     family = student(),
     prior = prior6,
-    iter = 3000, thin = 1, cores = 3, chains = 3, inits = "0",
+    seed = 9, 
+    iter = 4000, thin = 1, cores = 3, chains = 3, inits = "0",
     control = list(max_treedepth = 13, adapt_delta = 0.9))
 end_time <- Sys.time()
 end_time - start_time
@@ -440,7 +446,8 @@ m7 <-
     data = dfm,
     family = student(),
     prior = prior7,
-    iter = 3000, thin = 1, cores = 3, chains = 3, inits = "0",
+    seed = 9, 
+    iter = 4000, thin = 1, cores = 3, chains = 3, inits = "0",
     control = list(max_treedepth = 13, adapt_delta = 0.9))
 end_time <- Sys.time()
 end_time - start_time
@@ -471,7 +478,8 @@ m8 <-
     data = dfm,
     family = student(),
     prior = prior8,
-    iter = 3000, thin = 1, cores = 3, chains = 3, inits = "0",
+    seed = 9, 
+    iter = 4000, thin = 1, cores = 3, chains = 3, inits = "0",
     control = list(max_treedepth = 13, adapt_delta = 0.9))
 end_time <- Sys.time()
 end_time - start_time
@@ -719,6 +727,7 @@ ggsave("figures/supp/vbge_pred_year.png", width = 6.5, height = 6.5, dpi = 600)
 
 # Cohort-specific VBGE parameters
 get_variables(m1)
+pal2 <- alpha(pal, alpha = 0.8)
 
 # Warm K
 pKW <- m1 %>%
@@ -783,7 +792,7 @@ d1 <- mcmc_trace(posterior,
                           "b_KW_Intercept", "b_LinfC_Intercept", "b_LinfW_Intercept",
                           "sd_birth_year__KC_Intercept", "sd_birth_year__KW_Intercept",
                           "sd_birth_year__LinfC_Intercept", "sd_birth_year__LinfW_Intercept",
-                          "sigma"),#, "nu"),
+                          "sigma", "nu"),
                  facet_args = list(ncol = 3, strip.position = "left")) + 
   theme(text = element_text(size = 12),
         strip.text = element_text(size = 4),
@@ -810,8 +819,9 @@ d2 <- dfm %>%
 # https://stackoverflow.com/questions/42493048/computation-failed-for-stat-summary-what-must-be-a-character-string-or-a-func
 # https://www.seascapemodels.org/rstats/2017/10/06/qqplot-non-normal-glm.html
 
-summary(m1) # Extract "fixed" effects from m2 for plotting the equation 
-nu <- 4.34
+summary(m1)$spec_pars # Extract "fixed" effects from m2 for plotting the equation 
+nu <- summary(m1)$spec_pars[2, 1]
+nu
 
 # "Base" version
 # t <- dfm_dummy %>%
@@ -844,6 +854,6 @@ d4 <- pp_check(m1) +
 d1 / (d2 / (d3 + d4)) + 
   plot_annotation(tag_levels = 'A')
 
-ggsave("figures/supp/vbge_diag_fit2.png", width = 6.5, height = 10.5, dpi = 600)
+ggsave("figures/supp/vbge_diag_fit.png", width = 6.5, height = 10.5, dpi = 600)
 
 

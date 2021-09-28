@@ -491,7 +491,8 @@ prior0 <-
 
 m0 <- brm(b ~ -1 + area2,
           family = gaussian(), data = spectra, iter = 4000, cores = 3, chains = 3,
-          save_all_pars = TRUE,
+          seed = 9,
+          save_pars = save_pars(all = TRUE),
           prior = prior0
           )
 
@@ -508,7 +509,8 @@ prior1 <-
 m1 <- brm(
   b ~ - 1 + area2 + Year_ct,
   family = gaussian(), data = spectra, iter = 4000, cores = 3, chains = 3,
-  save_all_pars = TRUE,
+  seed = 9,
+  save_pars = save_pars(all = TRUE),
   prior = prior1
   )
 
@@ -526,7 +528,8 @@ prior2 <-
 m2 <- brm(
   b ~ - 1 + area2*Year_ct,
   family = gaussian(), data = spectra, iter = 4000, cores = 3, chains = 3,
-  save_all_pars = TRUE,
+  seed = 9,
+  save_pars = save_pars(all = TRUE),
   prior = prior2
   )
 

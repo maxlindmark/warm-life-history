@@ -368,7 +368,8 @@ m3s <- brm(bf(growth ~ areaW*b1W*length^b2W + areaC*b1C*length^b2C,
               b2W + b2C ~ 1, nl = TRUE),
            family = student(),
            data = dfm_dummy, prior = prior3, iter = 4000, cores = 3, chains = 3,
-           save_all_pars = TRUE,
+           seed = 9,
+           save_pars = save_pars(all = TRUE),
            control = list(adapt_delta = 0.99))
 proc.time() - ptm
 # user   system  elapsed 
@@ -445,7 +446,8 @@ m4s <- brm(bf(growth ~ areaW*b1W*length^b2 + areaC*b1C*length^b2,
               b2 ~ 1, nl = TRUE),
            family = student(),
            data = dfm_dummy, prior = prior4, iter = 4000, cores = 3, chains = 3,
-           save_all_pars = TRUE,
+           seed = 9,
+           save_pars = save_pars(all = TRUE),
            control = list(adapt_delta = 0.99))
 proc.time() - ptm
 # user   system  elapsed 

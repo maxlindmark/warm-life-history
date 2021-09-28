@@ -169,7 +169,8 @@ prior0 <-
 m0 <- brm(
   log_cpue ~ -1 + age * area2 + (0 + area2||year),          
   family = student(), data = d, iter = 4000, cores = 3, chains = 3,
-  save_all_pars = TRUE,
+  seed = 9,
+  save_pars = save_pars(all = TRUE),
   prior = prior0,
   )
 
@@ -181,7 +182,8 @@ loo_m0 <- loo(m0, moment_match = TRUE)
 m1 <- brm(
   log_cpue ~ -1 + age * area2 + (0 + area2*age||year),
   family = student(), data = d, iter = 4000, cores = 3, chains = 3,
-  save_all_pars = TRUE,
+  seed = 9,
+  save_pars = save_pars(all = TRUE),
   prior = prior0,
   control = list(adapt_delta = 0.99)
   )
@@ -195,7 +197,8 @@ plot(loo_m1, diagnostic = c("k", "n_eff"), label_points = TRUE)
 # Area-specific slopes that also vary by year (correlated random effects)
 m1b <- brm(log_cpue ~ -1 + age * area2 + (0 + area2*age||year),
            family = student(), data = d, iter = 4000, cores = 3, chains = 3,
-           save_all_pars = TRUE,
+           seed = 9,
+           save_pars = save_pars(all = TRUE),
            control = list(adapt_delta = 0.99),
            prior = prior0)
 
@@ -228,10 +231,10 @@ p1 <- d %>%
   labs(color = "Area", fill = "Area", x = "Age [yrs]", y = "Log(CPUE)") +
   guides(color = guide_legend(override.aes = list(linetype = 0, size = 2, shape = 16, alpha = 0.5,
                                                   color = rev(pal), fill = NA))) +
-  annotate("text", 2.4, -0.45, label = paste("n=", nrow(d), sep = ""), size = 2.5) +
-  annotate("text", 2.4, -0.9, size = 2.5, color = pal[2],
+  annotate("text", 2.9, -0.65, label = paste("n=", nrow(d), sep = ""), size = 2.5) +
+  annotate("text", 2.9, -1.1, size = 2.5, color = pal[2],
            label = expression(paste("y=6.55-0.64×age; ", italic(Z), "=0.64 [0.60, 0.69]", sep = ""))) + # Cold
-  annotate("text", 2.4, -1.35, size = 2.5, color = pal[1],
+  annotate("text", 2.9, -1.65, size = 2.5, color = pal[1],
            label = expression(paste("y=5.56-0.75×age; ", italic(Z), "=0.75 [0.65, 0.85]", sep = ""))) + # Warm
   NULL
 
@@ -251,28 +254,28 @@ get_variables(m1)
 
 # Random intercepts
 # Warm
-warm_intercept <- m1 %>%
-  spread_draws(b_area2Warm, r_year[year, area2Warm]) %>%
-  filter(area2Warm == "area2Warm") %>% 
-  mutate(warm_intercepts = b_area2Warm + r_year) %>% # The random effects are offsets
-  ggplot(aes(y = factor(year), x = warm_intercepts)) +
-  stat_halfeye(fill = pal[1], alpha = 0.8) + 
-  labs(y = "Year", x = "Intercept") + 
-  ggtitle("Warm")
+# warm_intercept <- m1 %>%
+#   spread_draws(b_area2Warm, r_year[year, area2Warm]) %>%
+#   filter(area2Warm == "area2Warm") %>% 
+#   mutate(warm_intercepts = b_area2Warm + r_year) %>% # The random effects are offsets
+#   ggplot(aes(y = factor(year), x = warm_intercepts)) +
+#   stat_halfeye(fill = pal[1], alpha = 0.8) + 
+#   labs(y = "Year", x = "Intercept") + 
+#   ggtitle("Warm")
+# 
+# # Cold
+# cold_intercept <- m1 %>%
+#   spread_draws(b_area2Cold, r_year[year, area2Cold]) %>%
+#   filter(area2Cold == "area2Cold") %>% 
+#   mutate(cold_intercepts = b_area2Cold + r_year) %>% # The random effects are offsets
+#   ggplot(aes(y = factor(year), x = cold_intercepts)) +
+#   stat_halfeye(fill = pal[2], alpha = 0.8) + 
+#   labs(y = "", x = "Intercept") + 
+#   ggtitle("Cold")
+# 
+# warm_intercept + cold_intercept
 
-# Cold
-cold_intercept <- m1 %>%
-  spread_draws(b_area2Cold, r_year[year, area2Cold]) %>%
-  filter(area2Cold == "area2Cold") %>% 
-  mutate(cold_intercepts = b_area2Cold + r_year) %>% # The random effects are offsets
-  ggplot(aes(y = factor(year), x = cold_intercepts)) +
-  stat_halfeye(fill = pal[2], alpha = 0.8) + 
-  labs(y = "", x = "Intercept") + 
-  ggtitle("Cold")
-
-warm_intercept + cold_intercept
-
-ggsave("figures/supp/catch_curves_random_intercepts.png", width = 6.5, height = 6.5, dpi = 600)
+#ggsave("figures/supp/catch_curves_random_intercepts.png", width = 6.5, height = 6.5, dpi = 600)
 
 # Warm slopes
 #https://stackoverflow.com/questions/57379091/how-to-extract-tidy-draws-from-brms-models-tidybayes-for-interaction-terms
@@ -340,13 +343,61 @@ p_random <- full_df %>%
   scale_color_manual(values = rev(pal)) +
   labs(y = "Year", x = expression(italic(Z))) + 
   guides(fill = F, color = F) +
+  coord_cartesian(xlim = c(0.46, 0.88)) +
   theme(text = element_text(size = 12),
-        axis.text.x = element_text(angle = 30, size = 9)) + 
-  coord_flip(xlim = c(0.48, 0.9))
-  
-pWord1 / p_random + plot_annotation(tag_levels = 'A')
+        axis.text.x = element_text(angle = 30, size = 9))
 
-ggsave("figures/catch_curve_random.png", width = 5.5, height = 6.5, dpi = 600)
+ggsave("figures/supp/catch_curves_random_slopes.png", width = 6.5, height = 6.5, dpi = 600)  
+
+
+# https://bookdown.org/content/3890/interactions.html
+# http://mjskay.github.io/tidybayes/articles/tidy-brms.html
+post_slope <- m1 %>%
+  spread_draws(b_age, `b_age:area2Warm`) %>%
+  mutate(b_age_cold2 = b_age*-1,
+         b_age_warm2 = b_age*-1 + `b_age:area2Warm`*-1) %>%
+  dplyr::select(b_age_cold2, b_age_warm2) %>% 
+  pivot_longer(1:2, names_to = ".variable", values_to = ".value") %>% 
+  ggplot(aes(x = .value, fill = .variable, color = .variable)) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
+         color = FALSE) + 
+  scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
+  scale_color_manual(values = rev(pal)) +
+  labs(x = expression(italic(Z)), fill = "") +
+  theme(legend.position = c(0.15, 0.9),
+        legend.key.size = unit(0.2, "cm"),
+        legend.background = element_blank())
+
+summary(m1)
+diff <- m1 %>%
+  spread_draws(b_age, `b_age:area2Warm`) %>%
+  mutate(b_age_cold2 = b_age*-1,
+         b_age_warm2 = b_age*-1 + `b_age:area2Warm`*-1) %>%
+  mutate(diff = b_age_warm2 - b_age_cold2)
+
+prop_diff <- summarise(diff, Proportion_of_the_difference_below_0 = sum(diff < 0) / length(diff))
+# A tibble: 1 x 1
+# Proportion_of_the_difference_below_0
+# <dbl>
+#   1                             0.000333
+
+post_diff <- diff %>%
+  ggplot(aes(x = diff, fill = stat(x > 0))) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
+  scale_fill_manual(values = c("grey10", "grey70")) +
+  annotate("text", 0.12, 0.95, size = 3.5, label = paste("prop. diff<0=", round(prop_diff, 4), sep = "")) +
+  labs(x = expression(~italic(Z[warm])~-~italic(Z[cold]))) +
+  theme(legend.position = c(0.2, 0.8),
+        legend.key.size = unit(0.2, "cm"),
+        legend.background = element_blank())
+
+# ((pWord1 / post_slope / post_diff) | p_random) + plot_annotation(tag_levels = 'A') + plot_layout(ncol = 2)  
+
+pWord1 / (post_slope | post_diff)  + plot_annotation(tag_levels = 'A')
+
+ggsave("figures/catch_curve.png", width = 5.5, height = 6.5, dpi = 600)
 
 
 # Testing stat_pointinterval plots median 
