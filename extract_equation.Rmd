@@ -27,7 +27,14 @@ extract_eq(m1)
 $$
 \operatorname{length} = \beta_{0}(\operatorname{area}_{\operatorname{BT}}) + \beta_{1}(\operatorname{area}_{\operatorname{FM}}) + \beta_{2}(\operatorname{catch\_year}) + \epsilon
 $$
- 
+```{r message=FALSE, warning=FALSE, results="hide"}
+m1b <- lm(length ~ -1 + area * catch_year, data = df)
+#tex_preview(extract_eq(m1))
+extract_eq(m1b)
+```
+ $$
+\operatorname{length} = \beta_{0}(\operatorname{area}_{\operatorname{BT}}) + \beta_{1}(\operatorname{area}_{\operatorname{FM}}) + \beta_{2}(\operatorname{catch\_year}) + \beta_{3}(\operatorname{area}_{\operatorname{FM}} \times \operatorname{catch\_year}) + \epsilon
+$$
 ### Random intercept
 
 ```{r message=FALSE, warning=FALSE, results="hide"}

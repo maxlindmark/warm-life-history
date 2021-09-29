@@ -99,7 +99,8 @@ dfm$log_length_cm <- log(dfm$length_cm)
 # Change age to integer
 dfm$age <- as.integer(dfm$age)
 
-min(dfm$age) 
+min(dfm$age)
+min(dfm$birth_year) 
 
 # C. FIT MODELS ====================================================================
 # Here are some guides I followed
@@ -216,7 +217,7 @@ summary(m1)
 plot(m1)
 
 # Save model object to not have to rerun it...
-saveRDS(m1, "output/vbge/m1.rds")
+#saveRDS(m1, "output/vbge/m1.rds")
 #m1 <- readRDS("output/vbge/m1.rds")
 
 # > prior_summary(m1)
@@ -281,7 +282,7 @@ summary(m2)
 plot(m2)
 
 # Save model object to not have to rerun it...
-saveRDS(m2, "output/vbge/m2.rds")
+# saveRDS(m2, "output/vbge/m2.rds")
 # m2 <- readRDS("output/vbge/m2.rds")
 
 
@@ -317,7 +318,7 @@ summary(m3)
 plot(m3)
 
 # Save model object to not have to rerun it...
-saveRDS(m3, "output/vbge/m3.rds")
+# saveRDS(m3, "output/vbge/m3.rds")
 # m3 <- readRDS("output/vbge/m3.rds")
 
 
@@ -353,7 +354,7 @@ summary(m4)
 plot(m4)
 
 # Save model object to not have to rerun it...
-saveRDS(m4, "output/vbge/m4.rds")
+# saveRDS(m4, "output/vbge/m4.rds")
 # m4 <- readRDS("output/vbge/m4.rds")
 
 
@@ -387,7 +388,7 @@ summary(m5)
 plot(m5)
 
 # Save model object to not have to rerun it...
-saveRDS(m5, "output/vbge/m5.rds")
+# saveRDS(m5, "output/vbge/m5.rds")
 # m5 <- readRDS("output/vbge/m5.rds")
 
 
@@ -421,7 +422,7 @@ summary(m6)
 plot(m6)
 
 # Save model object to not have to rerun it...
-saveRDS(m6, "output/vbge/m6.rds")
+# saveRDS(m6, "output/vbge/m6.rds")
 # m6 <- readRDS("output/vbge/m6.rds")
 
 
@@ -437,7 +438,7 @@ m7 <-
   brm(
     bf(length_cm ~ areaW*LinfW*(1-exp(-K*(age-t0))) + areaC*LinfC*(1-exp(-K*(age-t0))),
        t0 ~ 1,
-       K ~ 1 + (1|birth_year),      # parameter varying by birth_year
+       K ~ 1 + (1|birth_year),     # parameter varying by birth_year
        LinfC ~ 1 + (1|birth_year), # parameter varying by birth_year
        LinfW ~ 1 + (1|birth_year), # parameter varying by birth_year
        nl = TRUE),
@@ -455,7 +456,7 @@ summary(m7)
 plot(m7)
 
 # Save model object to not have to rerun it...
-saveRDS(m7, "output/vbge/m7.rds")
+# saveRDS(m7, "output/vbge/m7.rds")
 # m7 <- readRDS("output/vbge/m7.rds")
 
 
@@ -487,7 +488,7 @@ summary(m8)
 plot(m8)
 
 # Save model object to not have to rerun it...
-saveRDS(m8, "output/vbge/m8.rds")
+# saveRDS(m8, "output/vbge/m8.rds")
 # m8 <- readRDS("output/vbge/m8.rds")
 
 
@@ -552,64 +553,10 @@ pWord1 <- p1 + theme(text = element_text(size = 12), # 12 for word doc
                      legend.title = element_text(size = 10),
                      legend.text = element_text(size = 10))
 
-#ggsave("figures/supp/vbge_pred.png", width = 6.5, height = 6.5, dpi = 600)
-  
-
 # Plotting mcmc_dens and use patchwork to plot them together. Note I add the vertical
 # lines manually simply by extracting the fixed effects
 m1_fe <- fixef(m1, probs = c(0.1, 0.9)) %>% as.data.frame()
 posterior <- as.array(m1)
-# 
-# # Define matching palette
-# pal2 <- alpha(pal, alpha = 0.8)
-# 
-# color_scheme_set(rep("white", 6)) # This is to be able to have a fill color with alpha
-# 
-# Linf_warm <- mcmc_dens(posterior, pars = c("b_LinfW_Intercept"),
-#           facet_args = list(nrow = 2)) + 
-#   geom_density(fill = pal2[1], color = NA) + 
-#   geom_vline(xintercept = m1_fe$Estimate[6], linetype = 1, color = "white") +
-#   geom_vline(xintercept = m1_fe$Q10[6], linetype = 2, color = "white") +
-#   geom_vline(xintercept = m1_fe$Q90[6], linetype = 2, color = "white") +
-#   coord_cartesian(xlim = c(27, 75)) +
-#   #labs(x = expression(paste(italic(L[inf]), " [cm]")), y = "") +
-#   labs(x = "", y = "") + 
-#   #annotate("text", -Inf, Inf, label = "Warm", size = 5, hjust = -0.5, vjust = 1.3) +
-#   theme(text = element_text(size = 12)) 
-# 
-# Linf_cold <- mcmc_dens(posterior, pars = c("b_LinfC_Intercept"),
-#                      facet_args = list(nrow = 2)) + 
-#   geom_density(fill = pal2[2], color = NA) + 
-#   geom_vline(xintercept = m1_fe$Estimate[5], linetype = 1, color = "white") +
-#   geom_vline(xintercept = m1_fe$Q10[5], linetype = 2, color = "white") +
-#   geom_vline(xintercept = m1_fe$Q90[5], linetype = 2, color = "white") +
-#   coord_cartesian(xlim = c(27, 75)) +
-#   labs(x = expression(paste(italic(L[inf]), " [cm]")), y = "") + 
-#   #annotate("text", -Inf, Inf, label = "Cold", size = 5, hjust = -0.5, vjust = 1.3) +
-#   theme(text = element_text(size = 12))
-# 
-# K_warm <- mcmc_dens(posterior, pars = c("b_KW_Intercept"),
-#                      facet_args = list(nrow = 2)) + 
-#   geom_density(fill = pal2[1], color = NA) + 
-#   geom_vline(xintercept = m1_fe$Estimate[4], linetype = 1, color = "white") +
-#   geom_vline(xintercept = m1_fe$Q10[4], linetype = 2, color = "white") +
-#   geom_vline(xintercept = m1_fe$Q90[4], linetype = 2, color = "white") +
-#   coord_cartesian(xlim = c(0.08, 0.28)) +
-#   #xlab(expression(paste(italic(K), " [", yr^-1,"]", sep = ""))) + 
-#   xlab("") + 
-#   theme(text = element_text(size = 12)) 
-# 
-# K_cold <- mcmc_dens(posterior, pars = c("b_KC_Intercept"),
-#                      facet_args = list(nrow = 2)) + 
-#   geom_density(fill = pal2[2], color = NA) + 
-#   geom_vline(xintercept = m1_fe$Estimate[3], linetype = 1, color = "white") +
-#   geom_vline(xintercept = m1_fe$Q10[3], linetype = 2, color = "white") +
-#   geom_vline(xintercept = m1_fe$Q90[3], linetype = 2, color = "white") +
-#   coord_cartesian(xlim = c(0.08, 0.28)) +
-#   xlab(expression(paste(italic(K), " [", yr^-1,"]", sep = ""))) + 
-#   theme(text = element_text(size = 12))
-# Linf_warm + K_warm + Linf_cold + K_cold
-# ggsave("figures/supp/K_Linf_posterior.png", width = 6.5, height = 6.5, dpi = 600)
 
 # http://mjskay.github.io/tidybayes/articles/tidy-brms.html
 post_K <- 
@@ -640,7 +587,6 @@ post_L_inf <-
   theme(legend.position = c(0.9, 0.9),
         legend.key.size = unit(0.2, "cm"),
         legend.background = element_blank())
-
 
 # Plot distribution of differences
 # http://mjskay.github.io/tidybayes/articles/tidy-brms.html
@@ -680,11 +626,6 @@ post_diff_L_inf <- ggplot(diff, aes(x = diff_L_inf, fill = stat(x > 0))) +
         legend.background = element_blank())
 
 post_diff_L_inf
-
-# Plotting all together
-# pWord1 / (Linf_warm + K_warm + Linf_cold + K_cold) +
-#   plot_layout(heights = c(2, 1)) +
-#   plot_annotation(tag_levels = 'A')
 
 pWord1 / ((post_K/post_diff_K) | (post_L_inf/post_diff_L_inf)) +
   plot_layout(heights = c(1.2, 1)) +
@@ -734,7 +675,7 @@ pKW <- m1 %>%
   mutate(year_mean_KW = b_KW_Intercept + r_birth_year__KW) %>% # The random effects are offsets
   ggplot(aes(y = factor(birth_year), x = year_mean_KW)) +
   stat_halfeye(fill = pal2[1], alpha = 0.8) + 
-  labs(y = "Year", x = expression(paste(italic(K), " [", yr^-1,"]", sep = ""))) + 
+  labs(y = "Cohort", x = expression(paste(italic(K), " [", yr^-1,"]", sep = ""))) + 
   ggtitle("Warm")
 
 # Cold K
@@ -744,7 +685,7 @@ pKC <- m1 %>%
   mutate(year_mean_KC = b_KC_Intercept + r_birth_year__KC) %>% # The random effects are offsets
   ggplot(aes(y = factor(birth_year), x = year_mean_KC)) +
   stat_halfeye(fill = pal2[2], alpha = 0.8) + 
-  labs(y = "Year", x = expression(paste(italic(K), " [", yr^-1,"]", sep = ""))) + 
+  labs(y = "Cohort", x = expression(paste(italic(K), " [", yr^-1,"]", sep = ""))) + 
   ggtitle("Cold")
 
 pKW + pKC
@@ -758,8 +699,8 @@ pLinfW <- m1 %>%
   mutate(year_mean_LinfW = b_LinfW_Intercept + r_birth_year__LinfW) %>% # The random effects are offsets
   ggplot(aes(y = factor(birth_year), x = year_mean_LinfW)) +
   stat_halfeye(fill = pal2[1], alpha = 0.8) + 
-  labs(y = "Year", x = expression(paste(italic(L[inf]), " [cm]"))) + 
-  coord_cartesian(xlim = c(29, 140)) +
+  labs(y = "Cohort", x = expression(paste(italic(L[inf]), " [cm]"))) + 
+  coord_cartesian(xlim = c(26, 95)) +
   ggtitle("Warm")
 
 # Cold L_inf
@@ -769,8 +710,8 @@ pLinfC <- m1 %>%
   mutate(year_mean_LinfC = b_LinfC_Intercept + r_birth_year__LinfC) %>% # The random effects are offsets
   ggplot(aes(y = factor(birth_year), x = year_mean_LinfC)) +
   stat_halfeye(fill = pal2[2], alpha = 0.8) + 
-  labs(y = "Year", x = expression(paste(italic(L[inf]), " [cm]"))) + 
-  coord_cartesian(xlim = c(29, 140)) +
+  labs(y = "Cohort", x = expression(paste(italic(L[inf]), " [cm]"))) + 
+  coord_cartesian(xlim = c(26, 95)) +
   ggtitle("Cold")
 
 pLinfW + pLinfC

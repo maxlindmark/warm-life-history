@@ -134,17 +134,24 @@ df4 %>%
   ggplot(., aes(year, cpue_numbers)) + geom_bar(stat = "identity") +
   facet_wrap(~ area)
 
-# Filter and rename data
-# d <- df4 %>% filter(age > 2)
-
 # Something strange in BT 1996, station is wrong, hence netID, total nets and thus CPUE
 # Removing it for now!
 d <- df4 %>%
   filter(age > 2) %>% 
   mutate(keep = ifelse(area == "BT" & year == 1996, "N", "Y")) %>% 
   filter(keep == "Y")
-
 d %>% group_by(area, year) %>% summarise(year = (unique(year))) %>% data.frame()
+
+# Edit variables
+d <- d %>%
+  mutate(log_cpue = log(cpue_numbers),
+         area2 = ifelse(area == "BT", "Warm", "Cold"),
+         cohort = year - age) 
+
+# Remove cohorts before 1981
+d <- d %>% filter(cohort > 1980)
+
+sort(unique(d$cohort))
 
 
 # C. FIT MODELS ====================================================================
@@ -152,12 +159,6 @@ d %>% group_by(area, year) %>% summarise(year = (unique(year))) %>% data.frame()
 # See this for notation: https://solomonkurz.netlify.app/post/2020-12-09-multilevel-models-and-the-index-variable-approach/ 
 # Fitting models of log catch ~ age with interactive or additive effects of area, 
 # using catch year as a random effect
-
-# Edit variables
-d <- d %>%
-  mutate(log_cpue = log(cpue_numbers),
-         area2 = ifelse(area == "BT", "Warm", "Cold"),
-         cohort = year - age) 
 
 # Random intercepts only because of better convergence (posteriors of random year slopes looking funny)
 # m1 <- brm(log_cpue ~ -1 + age * area2 + (0 + area2|year),
@@ -170,8 +171,7 @@ prior0 <-
 
 # No random slopes (same slopes for all years, but still area-specific)
 m0 <- brm(
-  log_cpue ~ -1 + age * area2 + (0 + area2||year),          
-  #log_cpue ~ -1 + age * area2 + (0 + area2||cohort),          
+  log_cpue ~ -1 + age * area2 + (0 + area2||cohort),          
   family = student(), data = d, iter = 4000, cores = 3, chains = 3,
   seed = 9,
   save_pars = save_pars(all = TRUE),
@@ -181,11 +181,9 @@ m0 <- brm(
 summary(m0)
 loo_m0 <- loo(m0, moment_match = TRUE)
 
-
 # Area-specific slopes that also vary by year (uncorrelated random effects)
 m1 <- brm(
-  log_cpue ~ -1 + age * area2 + (0 + area2*age||year),
-  #log_cpue ~ -1 + age * area2 + (0 + area2*age||cohort),
+  log_cpue ~ -1 + age * area2 + (0 + area2*age||cohort),
   family = student(), data = d, iter = 4000, cores = 3, chains = 3,
   seed = 9,
   save_pars = save_pars(all = TRUE),
@@ -199,27 +197,12 @@ loo_m1 <- loo(m1, moment_match = TRUE)
 # Check how bad they are. I think ok for now, below 0.7 at least
 plot(loo_m1, diagnostic = c("k", "n_eff"), label_points = TRUE)
 
-# Area-specific slopes that also vary by year (correlated random effects)
-m1b <- brm(
-  log_cpue ~ -1 + age * area2 + (0 + area2*age||year),
-  #log_cpue ~ -1 + age * area2 + (0 + area2*age||cohort),
-  family = student(), data = d, iter = 4000, cores = 3, chains = 3,
-  seed = 9,
-  save_pars = save_pars(all = TRUE),
-  control = list(adapt_delta = 0.99),
-  prior = prior0)
-
-summary(m1b)
-loo_m1b <- loo(m1b, moment_match = TRUE)
-
-# Check how bad they are. I think ok for now, below 0.7 at least
-plot(loo_m1b, diagnostic = c("k", "n_eff"), label_points = TRUE)
-
-loo_compare(loo_m0, loo_m1, loo_m1b)
+loo_compare(loo_m0, loo_m1)
 # elpd_diff se_diff
-# m1    0.0       0.0  
-# m1b   0.0       0.0  
-# m0  -12.3       4.3 
+# elpd_diff se_diff
+# m1  0.0       0.0   
+# m0 -1.2       2.1 
+
 
 # D. PRODUCE FIGURES ===============================================================
 ##### Plot Predictions =============================================================
@@ -243,9 +226,9 @@ p1 <- d %>%
                                                   color = rev(pal), fill = NA))) +
   annotate("text", 2.9, -0.65, label = paste("n=", nrow(d), sep = ""), size = 2.5) +
   annotate("text", 2.9, -1.1, size = 2.5, color = pal[2],
-           label = expression(paste("y=6.55-0.64×age; ", italic(Z), "=0.64 [0.60, 0.69]", sep = ""))) + # Cold
+           label = expression(paste("y=6.55-0.64×age; ", italic(Z), "=0.64 [0.58, 0.69]", sep = ""))) + # Cold
   annotate("text", 2.9, -1.65, size = 2.5, color = pal[1],
-           label = expression(paste("y=5.56-0.75×age; ", italic(Z), "=0.75 [0.65, 0.85]", sep = ""))) + # Warm
+           label = expression(paste("y=5.56-0.75×age; ", italic(Z), "=0.76 [0.63, 0.88]", sep = ""))) + # Warm
   NULL
 
 pWord1 <- p1 + theme(text = element_text(size = 12), 
@@ -262,96 +245,34 @@ pWord1 <- p1 + theme(text = element_text(size = 12),
 # http://mjskay.github.io/tidybayes/articles/tidy-brms.html
 get_variables(m1)
 
-# Random intercepts
-# Warm
-# warm_intercept <- m1 %>%
-#   spread_draws(b_area2Warm, r_year[year, area2Warm]) %>%
-#   filter(area2Warm == "area2Warm") %>% 
-#   mutate(warm_intercepts = b_area2Warm + r_year) %>% # The random effects are offsets
-#   ggplot(aes(y = factor(year), x = warm_intercepts)) +
-#   stat_halfeye(fill = pal[1], alpha = 0.8) + 
-#   labs(y = "Year", x = "Intercept") + 
-#   ggtitle("Warm")
-# 
-# # Cold
-# cold_intercept <- m1 %>%
-#   spread_draws(b_area2Cold, r_year[year, area2Cold]) %>%
-#   filter(area2Cold == "area2Cold") %>% 
-#   mutate(cold_intercepts = b_area2Cold + r_year) %>% # The random effects are offsets
-#   ggplot(aes(y = factor(year), x = cold_intercepts)) +
-#   stat_halfeye(fill = pal[2], alpha = 0.8) + 
-#   labs(y = "", x = "Intercept") + 
-#   ggtitle("Cold")
-# 
-# warm_intercept + cold_intercept
-
-#ggsave("figures/supp/catch_curves_random_intercepts.png", width = 6.5, height = 6.5, dpi = 600)
-
-# Warm slopes
-#https://stackoverflow.com/questions/57379091/how-to-extract-tidy-draws-from-brms-models-tidybayes-for-interaction-terms
-# Check it corresponds to the summary
-# m1 %>% spread_draws(b_age) %>% summarize(mean_warm = mean(b_age))
-# m1 %>%
-#   spread_draws(b_age, `b_age:area2Warm`, r_year[year, age]) %>% 
-#   filter(age %in% c("age", "area2Warm:age")) %>% 
-#   mutate(warm_mean_slopes = (b_age + `b_age:area2Warm`)) %>% 
-#   ungroup() %>% 
-#   summarise(mean_warm_slope = mean(warm_mean_slopes))
-# 
-# warm_slope <- m1 %>%
-#   spread_draws(b_age, `b_age:area2Warm`, r_year[year, age]) %>% # Extract random effects and global effects
-#   filter(age %in% c("age", "area2Warm:age")) %>% # Filter the correct parameters. Because the warm slope is an offset, I need also the cold slope. For some reason, I get all levels of r_year when I include multiple parameters, not when I do only r_year[year, age]
-#   mutate(warm_mean_slope = (b_age + `b_age:area2Warm`)) %>% # Calculate the average warm slope (not it's a difference to the b_age, i.e. the cold slope)
-#   filter(age == "area2Warm:age") %>% # Filter only draws corresponding to the random effect that is the warm slope (not the cold slope)
-#   mutate(warm_slopes = warm_mean_slope + r_year) %>% # The random effects are offsets, so calculate the mean slope, we don't want the difference
-#   ggplot(aes(y = factor(year), x = warm_slopes)) +
-#   stat_halfeye(fill = pal[1], alpha = 0.8) + 
-#   labs(y = "", x = "Slope") + 
-#   coord_flip() +
-#   coord_cartesian(x = c(-0.4, -1))
-# 
-# # Cold slopes
-# cold_slope <- m1 %>%
-#   spread_draws(b_age, r_year[year, age]) %>% # Extract random effects and global effects
-#   filter(age %in% c("age")) %>% # Filter the correct parameters. For some reason, I get all levels of r_year when I include multiple parameters, not when I do only r_year[year, age]
-#   mutate(cold_mean_slope = b_age) %>%
-#   mutate(cold_slopes = cold_mean_slope + r_year) %>% # The random effects are offsets, so calculate the mean slope, we don't want the difference
-#   ggplot(aes(y = factor(year), x = cold_slopes)) +
-#   stat_halfeye(fill = pal[2], alpha = 0.8) + 
-#   labs(y = "", x = "Slope") + 
-#   coord_flip() +
-#   coord_cartesian(x = c(-0.4, -1))
-# 
-# cold_slope / warm_slope + plot_layout(widths = 0.5)
-
 # Plotting together...
 cold_slope_df <- m1 %>%
-  spread_draws(b_age, r_year[year, age]) %>% # Extract random effects and global effects
+  spread_draws(b_age, r_cohort[cohort, age]) %>% # Extract random effects and global effects
   filter(age %in% c("age")) %>% # Filter the correct parameters. For some reason, I get all levels of r_year when I include multiple parameters, not when I do only r_year[year, age]
   mutate(mean_slope = b_age,
          Area = "Cold") %>%
-  mutate(slopes = mean_slope + r_year) 
+  mutate(slopes = mean_slope + r_cohort) 
 
 warm_slope_df <- m1 %>%
-  spread_draws(b_age, `b_age:area2Warm`, r_year[year, age]) %>% # Extract random effects and global effects
+  spread_draws(b_age, `b_age:area2Warm`, r_cohort[cohort, age]) %>% # Extract random effects and global effects
   filter(age %in% c("age", "area2Warm:age")) %>% # Filter the correct parameters. Because the warm slope is an offset, I need also the cold slope. For some reason, I get all levels of r_year when I include multiple parameters, not when I do only r_year[year, age]
   mutate(mean_slope = (b_age + `b_age:area2Warm`),
          Area = "Warm") %>% # Calculate the average warm slope (not it's a difference to the b_age, i.e. the cold slope)
   filter(age == "area2Warm:age") %>% # Filter only draws corresponding to the random effect that is the warm slope (not the cold slope)
-  mutate(slopes = mean_slope + r_year)
+  mutate(slopes = mean_slope + r_cohort)
   
 full_df <- bind_rows(cold_slope_df, warm_slope_df)
 
 p_random <- full_df %>% 
   mutate(Z = slopes*-1) %>% # Convert from slopes to Z
-  ggplot(., aes(y = factor(year), x = Z, fill = factor(Area), color = factor(Area))) +
+  ggplot(., aes(y = factor(cohort), x = Z, fill = factor(Area), color = factor(Area))) +
   geom_vline(xintercept = c(0.64, 0.75), color = rev(pal), linetype = 2, alpha = 0.4, size = 0.5) +
   stat_slab(alpha = 0.13, position = position_nudge(y = 0.05), color = NA) + 
   stat_pointinterval(.width = c(.95), position = position_dodge(width = 0.25),
                      size = 0.1, alpha = 0.8) +
   scale_fill_manual(values = rev(pal)) +
   scale_color_manual(values = rev(pal)) +
-  labs(y = "Year", x = expression(italic(Z))) + 
+  labs(y = "Cohort", x = expression(italic(Z))) + 
   guides(fill = F, color = F) +
   coord_cartesian(xlim = c(0.46, 0.88)) +
   theme(text = element_text(size = 12),
@@ -390,36 +311,22 @@ prop_diff <- summarise(diff, Proportion_of_the_difference_below_0 = sum(diff < 0
 # A tibble: 1 x 1
 # Proportion_of_the_difference_below_0
 # <dbl>
-#   1                             0.000333
+#   1                              0.00117
 
 post_diff <- diff %>%
   ggplot(aes(x = diff, fill = stat(x > 0))) +
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
   scale_fill_manual(values = c("grey10", "grey70")) +
-  annotate("text", 0.12, 0.95, size = 3.5, label = paste("prop. diff<0=", round(prop_diff, 4), sep = "")) +
+  annotate("text", 0.14, 0.95, size = 3.5, label = paste("prop. diff<0=", round(prop_diff, 3), sep = "")) +
   labs(x = expression(~italic(Z[warm])~-~italic(Z[cold]))) +
   theme(legend.position = c(0.2, 0.8),
         legend.key.size = unit(0.2, "cm"),
         legend.background = element_blank())
 
-# ((pWord1 / post_slope / post_diff) | p_random) + plot_annotation(tag_levels = 'A') + plot_layout(ncol = 2)  
-
 pWord1 / (post_slope | post_diff)  + plot_annotation(tag_levels = 'A')
 
 ggsave("figures/catch_curve.png", width = 5.5, height = 6.5, dpi = 600)
-
-
-# Testing stat_pointinterval plots median 
-# data(RankCorr_u_tau, package = "ggdist")
-# t <- RankCorr_u_tau %>% group_by(i) %>% mutate(median = median(u_tau),
-#                                                mean = mean(u_tau))
-# t %>%
-#   ggplot(aes(y = factor(i), x = u_tau)) +
-#   stat_pointinterval(.width = c(.66, .95)) +
-#   geom_point(aes(y = factor(i), x = mean), color = "red") +
-#   geom_point(aes(y = factor(i), x = median), color = "blue")
-
 
 
 ##### Model diagnostics & fit ======================================================
@@ -431,8 +338,8 @@ dimnames(posterior)
 
 d1 <- mcmc_trace(posterior,
                  pars = c("b_age", "b_area2Cold", "b_area2Warm", 
-                          "b_age:area2Warm", "sd_year__area2Cold", "sd_year__area2Warm",
-                          "sd_year__age", "sd_year__area2Warm:age", "nu", "sigma"),
+                          "b_age:area2Warm", "sd_cohort__area2Cold", "sd_cohort__area2Warm",
+                          "sd_cohort__age", "sd_cohort__area2Warm:age", "nu", "sigma"),
                  facet_args = list(ncol = 3, strip.position = "left")) + 
   theme(text = element_text(size = 12),
         strip.text = element_text(size = 6),
