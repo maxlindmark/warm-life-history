@@ -472,6 +472,164 @@ res = timeSerPlot(BT_spectra,
                   yTicksSmallInc = 0.05)
 
 
+
+# See if I can make a size-spectrum plot in ggplot...
+ISD_bin_plot(data.year = data.year.list_BT[[i]],
+             b.MLE = dplyr::filter(BT_spectra, Year == fullYears[i])$b,
+             b.confMin = dplyr::filter(BT_spectra, Year == fullYears[i])$confMin,
+             b.confMax = dplyr::filter(BT_spectra, Year == fullYears[i])$confMax,
+             year = fullYears[i],
+             xlim = xlim.global,
+             xmin = dplyr::filter(BT_spectra, Year == fullYears[i])$xmin,
+             xmax = dplyr::filter(BT_spectra, Year == fullYears[i])$xmax)
+             
+
+# xLabel.small = c(5, 50, 500, 5000)
+# yScaling = 0.75
+# yRange = c(yScaling * min(data.year$countGTEwmin), max(data.year$highCount))
+# yBig.inc = 1000
+
+# only b-panel
+par(mfrow = c(1,1))
+data.year <- data.year.list_BT[[i]]
+xLab <- expression(paste("Body mass (", italic(x), "), g"))
+yLab = expression(paste("Number of ", values >= italic(x)))
+mgp.vals = c(1.6, 0.5, 0)
+rect.col <- "grey"
+seg.col <- "green"
+fit.col = "red"
+fit.lwd = 2
+conf.lty = 2
+xmin = dplyr::filter(BT_spectra, Year == fullYears[i])$xmin
+xmax = dplyr::filter(BT_spectra, Year == fullYears[i])$xmax
+b.MLE = dplyr::filter(BT_spectra, Year == fullYears[i])$b
+b.confMin = dplyr::filter(BT_spectra, Year == fullYears[i])$confMin
+b.confMax = dplyr::filter(BT_spectra, Year == fullYears[i])$confMax
+
+x.PLB = seq(xmin, xmax, length = 10000)
+x.PLB.length = length(x.PLB)
+x.PLB = c(x.PLB[-x.PLB.length], 0.99999 * x.PLB[x.PLB.length], 
+          x.PLB[x.PLB.length])
+y.PLB = (1 - pPLB(x = x.PLB, b = b.MLE, xmin = min(x.PLB), 
+                  xmax = max(x.PLB))) * sumNumber
+y.PLB.confMin = (1 - pPLB(x = x.PLB, b = b.confMin, xmin = min(x.PLB), 
+                          xmax = max(x.PLB))) * sumNumber
+y.PLB.confMax = (1 - pPLB(x = x.PLB, b = b.confMax, xmin = min(x.PLB), 
+                          xmax = max(x.PLB))) * sumNumber
+
+plot(data.year$wmin, data.year$countGTEwmin, log = "xy", 
+     xlab = xLab, ylab = yLab, 
+     ylim = yRange, 
+     type = "n", axes = FALSE, mgp = mgp.vals)
+xLim = 10^par("usr")[1:2]
+yLim = 10^par("usr")[3:4]
+logTicks(xLim, yLim, xLabelSmall = xLabel.small)
+rect(xleft = data.year$wmin, ybottom = data.year$lowCount, 
+     xright = data.year$wmax, ytop = data.year$highCount, 
+     col = rect.col)
+extra.rect = dplyr::filter(data.year, lowCount == 0)
+rect(xleft = extra.rect$wmin, ybottom = rep(0.01 * yRange[1], 
+                                            nrow(extra.rect)), xright = extra.rect$wmax, ytop = extra.rect$highCount, 
+     col = rect.col)
+segments(x0 = data.year$wmin, y0 = data.year$countGTEwmin, 
+         x1 = data.year$wmax, y1 = data.year$countGTEwmin, col = seg.col)
+
+lines(x.PLB, y.PLB, col = fit.col, lwd = fit.lwd)
+lines(x.PLB, y.PLB.confMin, col = fit.col, lty = conf.lty)
+lines(x.PLB, y.PLB.confMax, col = fit.col, lty = conf.lty)
+
+
+
+
+
+
+# Now ggplot it!
+pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
+
+# First put in in a dataframe instead of adding them as lines in the base plot
+# BT
+data_year_bt <- data.year.list_BT[[i]]
+data_year_bt$area <- "Warm"
+sumNumber = sum(data_year_bt$Number)
+
+xmin = dplyr::filter(BT_spectra, Year == fullYears[i])$xmin
+xmax = dplyr::filter(BT_spectra, Year == fullYears[i])$xmax
+x.PLB = seq(xmin, xmax, length = 10001)
+b.MLE = dplyr::filter(BT_spectra, Year == fullYears[i])$b
+b.confMin = dplyr::filter(BT_spectra, Year == fullYears[i])$confMin
+b.confMax = dplyr::filter(BT_spectra, Year == fullYears[i])$confMax
+
+data_year_bt2 <- data.frame(x.PLB = x.PLB,
+                            y.PLB = (1 - pPLB(x = x.PLB, b = b.MLE, xmin = min(x.PLB), xmax = max(x.PLB))) * sumNumber,
+                            y.PLB.confMin = (1 - pPLB(x = x.PLB, b = b.confMin, xmin = min(x.PLB), xmax = max(x.PLB))) * sumNumber,
+                            y.PLB.confMax = (1 - pPLB(x = x.PLB, b = b.confMax, xmin = min(x.PLB), xmax = max(x.PLB))) * sumNumber,
+                            area = "Warm")
+
+# Now do FM
+data_year_fm <- data.year.list_FM[[i]]
+data_year_fm$area <- "Cold"
+sumNumber = sum(data_year_fm$Number)
+
+xmin = dplyr::filter(FM_spectra, Year == fullYears[i-2])$xmin # CAREFUL!!! THE INDEX DOESN*T SUBSET THE SAME YEARS!
+xmax = dplyr::filter(FM_spectra, Year == fullYears[i-2])$xmax
+x.PLB = seq(xmin, xmax, length = 10001)
+b.MLE = dplyr::filter(FM_spectra, Year == fullYears[i-2])$b
+b.confMin = dplyr::filter(FM_spectra, Year == fullYears[i-2])$confMin
+b.confMax = dplyr::filter(FM_spectra, Year == fullYears[i-2])$confMax
+
+data_year_fm2 <- data.frame(x.PLB = x.PLB,
+                            y.PLB = (1 - pPLB(x = x.PLB, b = b.MLE, xmin = min(x.PLB), xmax = max(x.PLB))) * sumNumber,
+                            y.PLB.confMin = (1 - pPLB(x = x.PLB, b = b.confMin, xmin = min(x.PLB), xmax = max(x.PLB))) * sumNumber,
+                            y.PLB.confMax = (1 - pPLB(x = x.PLB, b = b.confMax, xmin = min(x.PLB), xmax = max(x.PLB))) * sumNumber,
+                            area = "Cold")
+
+data_year <- rbind(data_year_bt, data_year_fm)
+data_year2 <- rbind(data_year_bt2, data_year_fm2)
+
+p_mle <- ggplot(data_year2) +
+  geom_rect(data = data_year,
+            aes(xmin = wmin, xmax = wmax, ymin = lowCount, ymax = highCount, fill = area),
+            alpha = 0.2) +
+  geom_line(aes(x.PLB, y.PLB, color = area), size = 1.3, alpha = 0.8) +
+  geom_line(aes(x.PLB, y.PLB.confMin, color = area), linetype = 2, alpha = 0.8) +
+  geom_line(aes(x.PLB, y.PLB.confMax, color = area), linetype = 2, alpha = 0.8) +
+  scale_color_manual(values = rev(pal), name = "Area") +
+  scale_fill_manual(values = rev(pal)) + 
+  scale_x_log10() +
+  scale_y_log10() +
+  guides(fill = FALSE) + 
+  coord_cartesian(ylim = c(0.1, 100)) +
+  labs(x = "Body mass, x [g]", y = "Number of values ≥ x") +
+  theme(legend.position = c(0.8, 0.9)) +
+  guides(color = guide_legend(override.aes = list(linetype = 1, size = 2, alpha = 0.3, color = rev(pal)))) +
+  NULL
+
+# test and compare to built in plot
+# ggplot() +
+#   geom_rect(data = data_year_bt, aes(xmin = wmin, xmax = wmax, ymin = lowCount, ymax = highCount),
+#             alpha = 0.2) +
+#   geom_line(data = data_year_bt2, aes(x.PLB, y.PLB), color = pal[1]) +
+#   geom_line(data = data_year_bt2, aes(x.PLB, y.PLB.confMin), linetype = 2, color = pal[1]) +
+#   geom_line(data = data_year_bt2, aes(x.PLB, y.PLB.confMax), linetype = 2, color = pal[1]) +
+#   scale_x_log10() +
+#   scale_y_log10() +
+#   coord_cartesian(ylim = c(0.02, 30)) +
+#   labs(x = "Body mass, x [g]", y = "Number of values ≥ x") +
+#   NULL
+# 
+# ggplot() +
+#   geom_rect(data = data_year_fm, aes(xmin = wmin, xmax = wmax, ymin = lowCount, ymax = highCount),
+#             alpha = 0.2) +
+#   geom_line(data = data_year_fm2, aes(x.PLB, y.PLB), color = pal[2]) +
+#   geom_line(data = data_year_fm2, aes(x.PLB, y.PLB.confMin), linetype = 2, color = pal[2]) +
+#   geom_line(data = data_year_fm2, aes(x.PLB, y.PLB.confMax), linetype = 2, color = pal[2]) +
+#   scale_x_log10() +
+#   scale_y_log10() +
+#   coord_cartesian(ylim = c(0.5, 100)) +
+#   labs(x = "Body mass, x [g]", y = "Number of values ≥ x") +
+#   NULL
+
+  
 # D. FIT MODELS ====================================================================
 # Mean center year variable
 spectra <- spectra %>%
@@ -586,7 +744,7 @@ pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 #   facet_wrap(~ year, ncol = 2) +
 #   guides(fill = FALSE)
 
-p0 <- 
+phist <- 
   size_df %>%
   mutate(Area2 = ifelse(Area == "BT", "Warm", "Cold")) %>% 
   ggplot(., aes(x = length_group, fill = Area2, group = Area2)) +
@@ -598,17 +756,8 @@ p0 <-
   labs(x = "Length group [cm]") +
   guides(fill = FALSE)
 
-pWord0 <- p0 + theme(text = element_text(size = 12), 
-                     axis.text = element_text(angle = 30)#,
-                     # legend.spacing.y = unit(0, 'cm'),
-                     # legend.key.size = unit(0, "cm"),
-                     # legend.title = element_text(size = 10),
-                     # legend.text = element_text(size = 10)
-)
-
-
-# Compare 
-# (t1 + t2) / pWord0
+pWordhist <- phist + theme(text = element_text(size = 12), 
+                           axis.text = element_text(angle = 30))
 
 as.data.frame(fixef(m1)) # Extract "fixed" effects from m2 for plotting the equation 
 
@@ -618,11 +767,11 @@ p1 <- spectra %>%
             area2 = c("Warm", "Cold")) %>%
   mutate(Year = Year_ct + min(spectra$Year)) %>% 
   add_predicted_draws(m1, re_formula = NA) %>%
-  ggplot(aes(factor(Year), y = b, color = area2, fill = area2, group = area2)) +
+  ggplot(aes(Year, y = b, color = area2, fill = area2, group = area2)) +
   stat_lineribbon(aes(y = .prediction), .width = c(.90), alpha = 0.2) +
   geom_point(data = spectra, alpha = 0.6, size = 3, shape = 21, color = "white",
              position = position_dodge(width = 0.5)) +
-  geom_errorbar(data = spectra, aes(x = factor(Year), ymin = confMin, ymax = confMax,
+  geom_errorbar(data = spectra, aes(x = Year, ymin = confMin, ymax = confMax,
                                     color = area2, group = area2),
                 alpha = 0.25, size = 1, position = position_dodge(width = 0.5), width = 0) +
   stat_lineribbon(aes(y = .prediction), .width = c(.0), alpha = 0.8) +
@@ -630,11 +779,12 @@ p1 <- spectra %>%
   scale_color_manual(values = rev(pal)) +
   labs(color = "Area", fill = "Area", x = "Year",
        y = expression(paste("Size-spectrum slope ", italic((b))))) +
-  guides(color = guide_legend(override.aes = list(linetype = 0, size = 2, shape = 16, alpha = 0.5,
-                                                  color = rev(pal), fill = NA))) +
-  annotate("text", 15, -4.4, size = 3.5, color = pal[2],
+  # guides(color = guide_legend(override.aes = list(linetype = 0, size = 2, shape = 16, alpha = 0.5,
+  #                                                 color = rev(pal), fill = NA))) +
+  guides(color = FALSE, fill = FALSE) + 
+  annotate("text", 1998, -4.4, size = 3.5, color = pal[2],
            label = "y=-3.50 + 0.08×year") + # Cold
-  annotate("text", 15, -4.6, size = 3.5, color = pal[1],
+  annotate("text", 1998, -4.6, size = 3.5, color = pal[1],
            label = "y=-3.13 + 0.08×year") + # Warm
   NULL
   
@@ -652,31 +802,6 @@ pWord1 <- p1 + theme(text = element_text(size = 12),
 m1_fe <- fixef(m1, probs = seq(0, 1, by = 0.05)) %>% as.data.frame()
 posterior <- as.array(m1)
 dimnames(posterior)
-
-# Define matching palette
-# pal2 <- rev(alpha(pal, alpha = 0.8))
-# 
-# color_scheme_set(rep("white", 6)) # This is to be able to have a fill color with alpha
-# 
-# intercept_warm <- mcmc_dens(posterior, pars = c("b_area2Warm"),
-#                             facet_args = list(nrow = 2)) + 
-#   geom_density(fill = pal2[1], color = NA) + 
-#   geom_vline(xintercept = m1_fe$Estimate[2], linetype = 1, color = "white") +
-#   geom_vline(xintercept = m1_fe$Q10[2], linetype = 2, color = "white") +
-#   geom_vline(xintercept = m1_fe$Q90[2], linetype = 2, color = "white") +
-#   coord_cartesian(xlim = c(-4.2, -2.5)) + 
-#   labs(x = "", y = "") + 
-#   theme(axis.text.x = element_text(size = 6))
-# 
-# intercept_cold <- mcmc_dens(posterior, pars = c("b_area2Cold"),
-#                             facet_args = list(nrow = 2)) + 
-#   geom_density(fill = pal2[2], color = NA) + 
-#   geom_vline(xintercept = m1_fe$Estimate[1], linetype = 1, color = "white") +
-#   geom_vline(xintercept = m1_fe$Q10[1], linetype = 2, color = "white") +
-#   geom_vline(xintercept = m1_fe$Q90[1], linetype = 2, color = "white") +
-#   coord_cartesian(xlim = c(-4.2, -2.5)) + 
-#   labs(x = expression(italic(alpha)), y = "") +
-#   theme(axis.text.x = element_text(size = 6))
 
 # http://mjskay.github.io/tidybayes/articles/tidy-brms.html
 diff <- m1 %>%
@@ -741,7 +866,13 @@ post_inter <- m1 %>%
 
 post_inter
 
-pWord1 / ((post_inter/ post_diff) | pWord0) +
+# pWord1 / ((post_inter/ post_diff) | pWord0) +
+#   plot_annotation(tag_levels = "A")
+
+# (p_mle | pWordhist) / (pWord1 | (post_inter/post_diff)) +
+#   plot_annotation(tag_levels = "A")
+
+(p_mle | pWord1) / (pWordhist | (post_inter/post_diff)) +
   plot_annotation(tag_levels = "A")
 
 ggsave("figures/size_spec.png", width = 6.5, height = 6.5, dpi = 600)

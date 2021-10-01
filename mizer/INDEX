@@ -1,0 +1,250 @@
+BevertonHoltRDD         Beverton Holt function to calculate
+                        density-dependent reproduction rate
+MizerParams             Alias for 'set_multispecies_model()'
+MizerParams-class       A class to hold the parameters for a size based
+                        model.
+MizerSim                Constructor for the 'MizerSim' class
+MizerSim-class          A class to hold the results of a simulation
+N                       Time series of size spectra
+NOther                  Time series of other components
+NS_interaction          Example interaction matrix for the North Sea
+                        example
+NS_params               Example MizerParams object for the North Sea
+                        example
+NS_sim                  Example MizerSim object for the North Sea
+                        example
+NS_species_params       Example species parameter set based on the
+                        North Sea
+NS_species_params_gears
+                        Example species parameter set based on the
+                        North Sea with different gears
+RickerRDD               Ricker function to calculate density-dependent
+                        reproduction rate
+SheperdRDD              Sheperd function to calculate density-dependent
+                        reproduction rate
+addSpecies              Add new species
+animateSpectra          Animation of the abundance spectra
+box_pred_kernel         Box predation kernel
+calibrateBiomass        Calibrate the model scale to match total
+                        observed biomass
+calibrateYield          Calibrate the model scale to match total
+                        observed yield
+compareParams           Compare two MizerParams objects and print out
+                        differences
+constantEggRDI          Choose egg production to keep egg density
+                        constant
+constantRDD             Give constant reproduction rate
+constant_other          Helper function to keep other components
+                        constant
+customFunction          Replace a mizer function with a custom version
+default_pred_kernel_params
+                        Set defaults for predation kernel parameters
+different               Check whether two objects are different
+distanceMaxRelRDI       Measure distance between current and previous
+                        state in terms of RDI
+distanceSSLogN          Measure distance between current and previous
+                        state in terms of fish abundances
+double_sigmoid_length   Length based double-sigmoid selectivity
+                        function
+emptyParams             Create empty MizerParams object of the right
+                        size
+finalN                  Size spectra at end of simulation
+finalNOther             Values of other ecosystem components at end of
+                        simulation
+gear_params             Gear parameters
+getBiomass              Calculate the total biomass of each species
+                        within a size range at each time step.
+getCommunitySlope       Calculate the slope of the community abundance
+getComponent            Get information about other ecosystem
+                        components
+getCriticalFeedingLevel
+                        Get critical feeding level
+getDiet                 Get diet of predator at size, resolved by prey
+                        species
+getEGrowth              Get energy rate available for growth
+getERepro               Get energy rate available for reproduction
+getEReproAndGrowth      Get energy rate available for reproduction and
+                        growth
+getESpawning            Alias for 'getERepro()'
+getEffort               Fishing effort used in simulation
+getEncounter            Get encounter rate
+getFMort                Get the total fishing mortality rate from all
+                        fishing gears by time, species and size.
+getFMortGear            Get the fishing mortality by time, gear,
+                        species and size
+getFeedingLevel         Get feeding level
+getGrowthCurves         Get growth curves giving weight as a function
+                        of age
+getM2                   Alias for 'getPredMort()'
+getM2Background         Alias for 'getResourceMort()'
+getMeanMaxWeight        Calculate the mean maximum weight of the
+                        community
+getMeanWeight           Calculate the mean weight of the community
+getMort                 Get total mortality rate
+getN                    Calculate the number of individuals within a
+                        size range
+getParams               Extract the parameter object underlying a
+                        simulation
+getPhiPrey              Get available energy
+getPredMort             Get total predation mortality rate
+getPredRate             Get predation rate
+getProportionOfLargeFish
+                        Calculate the proportion of large fish
+getRDD                  Get density dependent reproduction rate
+getRDI                  Get density independent rate of egg production
+getRates                Get all rates
+getReproductionLevel    Get reproduction level
+getResourceMort         Get predation mortality rate for resource
+getSSB                  Calculate the SSB of species
+getTimes                Times for which simulation results are
+                        available
+getYield                Calculate the yearly yield for each species
+getYieldGear            Calculate the yearly yield per gear and species
+getZ                    Alias for 'getMort()'
+get_f0_default          Get default value for f0
+get_gamma_default       Get default value for gamma
+get_initial_n           Calculate initial population abundances for the
+                        community populations
+get_ks_default          Get default value for 'ks'
+get_phi                 Get values from feeding kernel function
+get_required_reproduction
+                        Determine reproduction rate needed for initial
+                        egg abundance
+get_size_range_array    Get size range array
+get_time_elements       Get_time_elements
+idxFinalT               Time index at end of simulation
+indicator_functions     Description of indicator functions
+initialN<-              Initial values for fish spectra
+initialNOther<-         Initial values for other ecosystem components
+initialNResource<-      Initial value for resource spectrum
+initial_effort          Initial fishing effort
+inter                   Alias for 'NS_interaction'
+knife_edge              Weight based knife-edge selectivity function
+lognormal_pred_kernel   Lognormal predation kernel
+matchBiomasses          Match biomasses to observations
+matchYields             Match yields to observations
+mizer-package           mizer: Multi-species size-based modelling in R
+mizerEGrowth            Get energy rate available for growth needed to
+                        project standard mizer model
+mizerERepro             Get energy rate available for reproduction
+                        needed to project standard mizer model
+mizerEReproAndGrowth    Get energy rate available for reproduction and
+                        growth needed to project standard mizer model
+mizerEncounter          Get encounter rate needed to project standard
+                        mizer model
+mizerFMort              Get the total fishing mortality rate from all
+                        fishing gears
+mizerFMortGear          Get the fishing mortality needed to project
+                        standard mizer model
+mizerFeedingLevel       Get feeding level needed to project standard
+                        mizer model
+mizerMort               Get total mortality rate needed to project
+                        standard mizer model
+mizerPredMort           Get total predation mortality rate needed to
+                        project standard mizer model
+mizerPredRate           Get predation rate needed to project standard
+                        mizer model
+mizerRDI                Get density-independent rate of reproduction
+                        needed to project standard mizer model
+mizerRates              Get all rates needed to project standard mizer
+                        model
+mizerResourceMort       Get predation mortality rate for resource
+                        needed to project standard mizer model
+newCommunityParams      Set up parameters for a community-type model
+newMultispeciesParams   Set up parameters for a general multispecies
+                        model
+newSingleSpeciesParams
+                        Set up parameters for a single species in a
+                        power-law background
+newTraitParams          Set up parameters for a trait-based
+                        multispecies model
+noRDD                   Give density-independent reproduction rate
+plot,MizerSim,missing-method
+                        Summary plot for 'MizerSim' objects
+plotBiomass             Plot the biomass of species through time
+plotBiomassObservedVsModel
+                        Plotting observed vs. model biomass data
+plotDiet                Plot diet, resolved by prey species, as
+                        function of predator at size.
+plotFMort               Plot total fishing mortality of each species by
+                        size
+plotFeedingLevel        Plot the feeding level of species by size
+plotGrowthCurves        Plot growth curves giving weight as a function
+                        of age
+plotM2                  Alias for 'plotPredMort()'
+plotPredMort            Plot predation mortality rate of each species
+                        against size
+plotSpectra             Plot the abundance spectra
+plotYield               Plot the total yield of species through time
+plotYieldGear           Plot the total yield of each species by gear
+                        through time
+plotYieldObservedVsModel
+                        Plotting observed vs. model yields
+plotting_functions      Description of the plotting functions
+power_law_pred_kernel   Power-law predation kernel
+project                 Project size spectrum forward in time
+projectToSteady         Project to steady state
+project_simple          Project abundances by a given number of time
+                        steps into the future
+removeSpecies           Remove species
+renameSpecies           Rename species
+resource_constant       Keep resource abundance constant
+resource_params         Resource parameters
+resource_semichemostat
+                        Project resource using semichemostat model
+saveParams              Save a MizerParams object to file, and restore
+                        it
+scaleModel              Change scale of the model
+setBevertonHolt         Set Beverton-Holt density dependence
+setColours              Set line colours and line types to be used in
+                        mizer plots
+setComponent            Add a dynamical ecosystem component
+setExtMort              Set external mortality rate
+setFishing              Set fishing parameters
+setInitialValues        Set initial values to final values of a
+                        simulation
+setInteraction          Set species interaction matrix
+setMaxIntakeRate        Set maximum intake rate
+setMetabolicRate        Set metabolic rate
+setMetadata             Set metadata for a model
+setParams               Set or change any model parameters
+setPredKernel           Set predation kernel
+setRateFunction         Set own rate function to replace mizer rate
+                        function
+setReproduction         Set reproduction parameters
+setResource             Set up resource
+setRmax                 Alias for 'setBevertonHolt()'
+setSearchVolume         Set search volume
+set_community_model     Deprecated function for setting up parameters
+                        for a community-type model
+set_multispecies_model
+                        Deprecated obsolete function for setting up
+                        multispecies parameters
+set_species_param_default
+                        Set a species parameter to a default value
+set_trait_model         Deprecated function for setting up parameters
+                        for a trait-based model
+sigmoid_length          Length based sigmoid selectivity function
+sigmoid_weight          Weight based sigmoidal selectivity function
+species_params          Species parameters
+steady                  Set initial values to a steady state for the
+                        model
+summary,MizerParams-method
+                        Summarize MizerParams object
+summary,MizerSim-method
+                        Summarize MizerSim object
+summary_functions       Description of summary functions
+truncated_lognormal_pred_kernel
+                        Truncated lognormal predation kernel
+upgradeParams           Upgrade MizerParams object from earlier mizer
+                        versions
+upgradeSim              Upgrade MizerSim object from earlier mizer
+                        versions
+validGearParams         Check validity of gear parameters and set
+                        defaults
+validParams             Validate MizerParams object and upgrade if
+                        necessary
+validSpeciesParams      Validate species parameter data frame
+valid_species_arg       Helper function to assure validity of species
+                        argument
+w                       Size bins
