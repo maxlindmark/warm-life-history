@@ -530,7 +530,7 @@ pal <- brewer.pal(n = 6, name = "Paired")[c(2, 6)]
 
 as.data.frame(fixef(m3s)) # Extract "fixed" effects from m2 for plotting the equation 
 
-p1 <- dfm_dummy %>%
+pscatter <- dfm_dummy %>%
   ungroup() %>%
   data_grid(length = seq_range(length, n = 101),
             area2 = c("Warm", "Cold")) %>%
@@ -549,26 +549,26 @@ p1 <- dfm_dummy %>%
        x = "Length [cm]", fill = "Area", colour = "Area") +
   annotate("text", 35, 42, label = paste("n=", nrow(dfm), sep = ""), size = 3.5) +
   annotate("text", 35, 36, size = 3.5, color = pal[1],
-           label = expression(paste("y=433.54×", length^-1.18))) + # Cold
+           label = expression(italic("y=433.54×"~length^-1.18))) + # Cold
   annotate("text", 35, 30, size = 3.5, color = pal[2],
-           label = expression(paste("y=510.73×", length^-1.13))) + # Warm
-  NULL
+           label = expression(italic("y=510.73×"~length^-1.13))) + # Warm
+  theme(text = element_text(size = 12), 
+        legend.position = c(0.9, 0.9), 
+        legend.spacing.y = unit(0, 'cm'),
+        legend.key.size = unit(0, "cm"),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 10))
 
-pWord1 <- p1 + theme(text = element_text(size = 12), 
-                     legend.position = c(0.9, 0.9), 
-                     legend.spacing.y = unit(0, 'cm'),
-                     legend.key.size = unit(0, "cm"),
-                     legend.title = element_text(size = 10),
-                     legend.text = element_text(size = 10))
-
+# Plot posteriors of parameters
 # http://mjskay.github.io/tidybayes/articles/tidy-brms.html
 post_b1 <- 
   m3s %>%
   gather_draws(b_b1C_Intercept, b_b1W_Intercept) %>%
   ggplot(aes(x = .value, fill = .variable, color = .variable)) +
   stat_halfeye(alpha = 0.5, size = 5, .width = c(0.9)) +
-  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
-         color = FALSE) + 
+  # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
+  #        color = FALSE) +
+  guides(color = FALSE, fill = FALSE) +
   scale_fill_manual(values = pal, labels = c("Cold", "Warm")) +
   scale_color_manual(values = pal) +
   labs(x = expression(italic(alpha)), fill = "") +
@@ -609,13 +609,11 @@ post_diff_b1 <- ggplot(diff, aes(x = diff_b1, fill = stat(x > 0))) +
   scale_fill_manual(values = c("grey10", "grey70")) +
   annotate("text", 140, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_b1, 3), sep = "")) +
   labs(x = expression(~italic(alpha[warm])~-~italic(alpha[cold]))) +
-  theme(legend.position = c(0.2, 0.8),
+  theme(legend.position = c(0.2, 0.7),
         legend.key.size = unit(0.2, "cm"),
         legend.text = element_text(size = 8),
         legend.title = element_text(size = 10),
         legend.background = element_blank())
-
-post_diff_b1
 
 post_diff_b2 <- ggplot(diff, aes(x = diff_b2, fill = stat(x > 0))) +
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
@@ -623,20 +621,14 @@ post_diff_b2 <- ggplot(diff, aes(x = diff_b2, fill = stat(x > 0))) +
   scale_fill_manual(values = c("grey10", "grey70")) +
   annotate("text", 0.07, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_b2, 3), sep = "")) +
   labs(x = expression(~italic(beta[warm])~-~italic(beta[cold]))) +
-  theme(legend.position = c(0.15, 0.8),
+  theme(legend.position = c(0.2, 0.7),
         legend.key.size = unit(0.2, "cm"),
         legend.text = element_text(size = 8),
         legend.title = element_text(size = 10),
         legend.background = element_blank())
 
-post_diff_b2
-
 # Plotting all together
-# pWord1 / (Linf_warm + K_warm + Linf_cold + K_cold) +
-#   plot_layout(heights = c(2, 1)) +
-#   plot_annotation(tag_levels = 'A')
-
-pWord1 / ((post_b1/post_diff_b1) | (post_b2/post_diff_b2)) +
+pscatter / ((post_b1/post_diff_b1) | (post_b2/post_diff_b2)) +
   plot_layout(heights = c(1.2, 1)) +
   plot_annotation(tag_levels = 'A')
 

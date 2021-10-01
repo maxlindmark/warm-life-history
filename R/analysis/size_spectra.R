@@ -450,104 +450,11 @@ BT_spectra = dplyr::mutate(BT_spectra, area = "BT")
 
 spectra <- rbind(BT_spectra, FM_spectra)
 
-# This is the default vignette plot
-res = timeSerPlot(FM_spectra,
-                  legName = "(a) MLEbins",
-#                  yLim = c(-2.2, -0.9),
-                  xLab = "Year",
-                  method = "MLEbins",
-                  legPos = "bottomleft",
-                  weightReg = TRUE,
-                  xTicksSmallInc = 1,
-                  yTicksSmallInc = 0.05)
-
-res = timeSerPlot(BT_spectra,
-                  legName = "(a) MLEbins",
-                  #                  yLim = c(-2.2, -0.9),
-                  xLab = "Year",
-                  method = "MLEbins",
-                  legPos = "bottomleft",
-                  weightReg = TRUE,
-                  xTicksSmallInc = 1,
-                  yTicksSmallInc = 0.05)
-
-
-
-# See if I can make a size-spectrum plot in ggplot...
-ISD_bin_plot(data.year = data.year.list_BT[[i]],
-             b.MLE = dplyr::filter(BT_spectra, Year == fullYears[i])$b,
-             b.confMin = dplyr::filter(BT_spectra, Year == fullYears[i])$confMin,
-             b.confMax = dplyr::filter(BT_spectra, Year == fullYears[i])$confMax,
-             year = fullYears[i],
-             xlim = xlim.global,
-             xmin = dplyr::filter(BT_spectra, Year == fullYears[i])$xmin,
-             xmax = dplyr::filter(BT_spectra, Year == fullYears[i])$xmax)
-             
-
-# xLabel.small = c(5, 50, 500, 5000)
-# yScaling = 0.75
-# yRange = c(yScaling * min(data.year$countGTEwmin), max(data.year$highCount))
-# yBig.inc = 1000
-
-# only b-panel
-par(mfrow = c(1,1))
-data.year <- data.year.list_BT[[i]]
-xLab <- expression(paste("Body mass (", italic(x), "), g"))
-yLab = expression(paste("Number of ", values >= italic(x)))
-mgp.vals = c(1.6, 0.5, 0)
-rect.col <- "grey"
-seg.col <- "green"
-fit.col = "red"
-fit.lwd = 2
-conf.lty = 2
-xmin = dplyr::filter(BT_spectra, Year == fullYears[i])$xmin
-xmax = dplyr::filter(BT_spectra, Year == fullYears[i])$xmax
-b.MLE = dplyr::filter(BT_spectra, Year == fullYears[i])$b
-b.confMin = dplyr::filter(BT_spectra, Year == fullYears[i])$confMin
-b.confMax = dplyr::filter(BT_spectra, Year == fullYears[i])$confMax
-
-x.PLB = seq(xmin, xmax, length = 10000)
-x.PLB.length = length(x.PLB)
-x.PLB = c(x.PLB[-x.PLB.length], 0.99999 * x.PLB[x.PLB.length], 
-          x.PLB[x.PLB.length])
-y.PLB = (1 - pPLB(x = x.PLB, b = b.MLE, xmin = min(x.PLB), 
-                  xmax = max(x.PLB))) * sumNumber
-y.PLB.confMin = (1 - pPLB(x = x.PLB, b = b.confMin, xmin = min(x.PLB), 
-                          xmax = max(x.PLB))) * sumNumber
-y.PLB.confMax = (1 - pPLB(x = x.PLB, b = b.confMax, xmin = min(x.PLB), 
-                          xmax = max(x.PLB))) * sumNumber
-
-plot(data.year$wmin, data.year$countGTEwmin, log = "xy", 
-     xlab = xLab, ylab = yLab, 
-     ylim = yRange, 
-     type = "n", axes = FALSE, mgp = mgp.vals)
-xLim = 10^par("usr")[1:2]
-yLim = 10^par("usr")[3:4]
-logTicks(xLim, yLim, xLabelSmall = xLabel.small)
-rect(xleft = data.year$wmin, ybottom = data.year$lowCount, 
-     xright = data.year$wmax, ytop = data.year$highCount, 
-     col = rect.col)
-extra.rect = dplyr::filter(data.year, lowCount == 0)
-rect(xleft = extra.rect$wmin, ybottom = rep(0.01 * yRange[1], 
-                                            nrow(extra.rect)), xright = extra.rect$wmax, ytop = extra.rect$highCount, 
-     col = rect.col)
-segments(x0 = data.year$wmin, y0 = data.year$countGTEwmin, 
-         x1 = data.year$wmax, y1 = data.year$countGTEwmin, col = seg.col)
-
-lines(x.PLB, y.PLB, col = fit.col, lwd = fit.lwd)
-lines(x.PLB, y.PLB.confMin, col = fit.col, lty = conf.lty)
-lines(x.PLB, y.PLB.confMax, col = fit.col, lty = conf.lty)
-
-
-
-
-
-
-# Now ggplot it!
 pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 
+# Now make a ggplot-version to put in the paper as an example
 # First put in in a dataframe instead of adding them as lines in the base plot
-# BT
+# BT (warm)
 data_year_bt <- data.year.list_BT[[i]]
 data_year_bt$area <- "Warm"
 sumNumber = sum(data_year_bt$Number)
@@ -565,7 +472,7 @@ data_year_bt2 <- data.frame(x.PLB = x.PLB,
                             y.PLB.confMax = (1 - pPLB(x = x.PLB, b = b.confMax, xmin = min(x.PLB), xmax = max(x.PLB))) * sumNumber,
                             area = "Warm")
 
-# Now do FM
+# FM (cold)
 data_year_fm <- data.year.list_FM[[i]]
 data_year_fm$area <- "Cold"
 sumNumber = sum(data_year_fm$Number)
@@ -586,7 +493,14 @@ data_year_fm2 <- data.frame(x.PLB = x.PLB,
 data_year <- rbind(data_year_bt, data_year_fm)
 data_year2 <- rbind(data_year_bt2, data_year_fm2)
 
-p_mle <- ggplot(data_year2) +
+b_warm <- round(filter(BT_spectra, Year == fullYears[i-2])$b, 2) #WATCH OUT FOR THE INDEX!
+b_cold <- round(filter(FM_spectra, Year == fullYears[i-2])$b, 2)
+b_warm_upr <- round(filter(BT_spectra, Year == fullYears[i-2])$confMax, 2) #WATCH OUT FOR THE INDEX!
+b_cold_upr <- round(filter(FM_spectra, Year == fullYears[i-2])$confMax, 2)
+b_warm_lwr <- round(filter(BT_spectra, Year == fullYears[i-2])$confMin, 2) #WATCH OUT FOR THE INDEX!
+b_cold_lwr <- round(filter(FM_spectra, Year == fullYears[i-2])$confMin, 2)
+
+pmle <- ggplot(data_year2) +
   geom_rect(data = data_year,
             aes(xmin = wmin, xmax = wmax, ymin = lowCount, ymax = highCount, fill = area),
             alpha = 0.2) +
@@ -602,9 +516,18 @@ p_mle <- ggplot(data_year2) +
   labs(x = "Body mass, x [g]", y = "Number of values ≥ x") +
   theme(legend.position = c(0.8, 0.9)) +
   guides(color = guide_legend(override.aes = list(linetype = 1, size = 2, alpha = 0.3, color = rev(pal)))) +
-  NULL
+  annotate("text", 150, 0.2, size = 3.5, label = paste("b=", b_warm, " [",  b_warm_lwr ,",", b_warm_upr, "]", sep = ""),
+           color = pal[1], fontface = "italic") +
+  annotate("text", 135, 0.13, size = 3.5, label = paste("b=", b_cold, " [",  b_cold_lwr ,",", b_cold_upr, "]", sep = ""),
+           color = pal[2], fontface = "italic") +
+  theme(text = element_text(size = 12), 
+        legend.position = c(0.9, 0.9),
+        legend.spacing.y = unit(0, 'cm'),
+        legend.key.size = unit(0, "cm"),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8))
 
-# test and compare to built in plot
+# test and compare to built in plot that I saved in the supplement folder
 # ggplot() +
 #   geom_rect(data = data_year_bt, aes(xmin = wmin, xmax = wmax, ymin = lowCount, ymax = highCount),
 #             alpha = 0.2) +
@@ -754,14 +677,12 @@ phist <-
   theme_light() + 
   coord_cartesian(expand = 0) +
   labs(x = "Length group [cm]") +
-  guides(fill = FALSE)
-
-pWordhist <- phist + theme(text = element_text(size = 12), 
-                           axis.text = element_text(angle = 30))
+  guides(fill = FALSE) +
+  theme(text = element_text(size = 12))
 
 as.data.frame(fixef(m1)) # Extract "fixed" effects from m2 for plotting the equation 
 
-p1 <- spectra %>%
+pscatter <- spectra %>%
   ungroup() %>%
   data_grid(Year_ct = seq_range(Year_ct, by = 1),
             area2 = c("Warm", "Cold")) %>%
@@ -782,20 +703,17 @@ p1 <- spectra %>%
   # guides(color = guide_legend(override.aes = list(linetype = 0, size = 2, shape = 16, alpha = 0.5,
   #                                                 color = rev(pal), fill = NA))) +
   guides(color = FALSE, fill = FALSE) + 
-  annotate("text", 1998, -4.4, size = 3.5, color = pal[2],
-           label = "y=-3.50 + 0.08×year") + # Cold
-  annotate("text", 1998, -4.6, size = 3.5, color = pal[1],
-           label = "y=-3.13 + 0.08×year") + # Warm
-  NULL
-  
-pWord1 <- p1 + theme(text = element_text(size = 12), 
-                     axis.text = element_text(angle = 30),
-                     legend.spacing.y = unit(0, 'cm'),
-                     legend.key.size = unit(0, "cm"),
-                     legend.position = c(0.11, 0.9), 
-                     legend.title = element_text(size = 10),
-                     legend.text = element_text(size = 10),
-                     legend.key = element_blank())
+  annotate("text", 1999, -4.4, size = 3.5, color = pal[2],
+           label = "y=-3.50 + 0.08×year", fontface = "italic") + # Cold
+  annotate("text", 1999, -4.6, size = 3.5, color = pal[1],
+           label = "y=-3.13 + 0.08×year", fontface = "italic") + # Warm
+  theme(text = element_text(size = 12), 
+        legend.spacing.y = unit(0, 'cm'),
+        legend.key.size = unit(0, "cm"),
+        legend.position = c(0.11, 0.9), 
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 10),
+        legend.key = element_blank())
 
 # Now plot the posterior intercepts
 # lines manually simply by extracting the fixed effects
@@ -818,9 +736,11 @@ post_diff <- m1 %>%
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
   scale_fill_manual(values = c("grey10", "grey70")) +
-  annotate("text", 0.72, 0.95, size = 3.5, label = paste("prop. diff<0=", round(prop_diff, 2), sep = "")) +
+  annotate("text", 0.7, 0.95, hjust = 0.5, vjust = 0.5, size = 3.5, label = paste("prop. diff<0=", round(prop_diff, 2), sep = "")) +
   labs(x = expression(~italic(alpha[warm])~-~italic(alpha[cold]))) +
-  theme(legend.position = c(0.2, 0.8),
+  theme(legend.position = c(0.2, 0.7),
+        legend.text = element_text(size = 10),
+        legend.title = element_text(size = 10),
         legend.key.size = unit(0.2, "cm"),
         legend.background = element_blank())
 
@@ -855,8 +775,9 @@ post_inter <- m1 %>%
   gather_draws(b_area2Cold, b_area2Warm) %>%
   ggplot(aes(x = .value, fill = .variable, color = .variable)) +
   stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
-  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
-         color = FALSE) + 
+  # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
+  #        color = FALSE) + 
+  guides(color = FALSE, fill = FALSE) +
   scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
   scale_color_manual(values = rev(pal)) +
   labs(x = expression(italic(alpha)), fill = "") +
@@ -864,15 +785,7 @@ post_inter <- m1 %>%
         legend.key.size = unit(0.2, "cm"),
         legend.background = element_blank())
 
-post_inter
-
-# pWord1 / ((post_inter/ post_diff) | pWord0) +
-#   plot_annotation(tag_levels = "A")
-
-# (p_mle | pWordhist) / (pWord1 | (post_inter/post_diff)) +
-#   plot_annotation(tag_levels = "A")
-
-(p_mle | pWord1) / (pWordhist | (post_inter/post_diff)) +
+(pmle | pscatter) / (phist | (post_inter/post_diff)) +
   plot_annotation(tag_levels = "A")
 
 ggsave("figures/size_spec.png", width = 6.5, height = 6.5, dpi = 600)

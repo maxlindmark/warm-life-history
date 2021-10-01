@@ -210,7 +210,7 @@ pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 
 as.data.frame(fixef(m1)) # Extract "fixed" effects from m2 for plotting the equation 
 
-p1 <- d %>%
+pcc <- d %>%
   ungroup() %>%
   data_grid(age = seq_range(age, by = 1),
             area2 = c("Warm", "Cold")) %>%
@@ -224,62 +224,19 @@ p1 <- d %>%
   labs(color = "Area", fill = "Area", x = "Age [yrs]", y = "Log(CPUE)") +
   guides(color = guide_legend(override.aes = list(linetype = 0, size = 2, shape = 16, alpha = 0.5,
                                                   color = rev(pal), fill = NA))) +
-  annotate("text", 2.9, -0.65, label = paste("n=", nrow(d), sep = ""), size = 2.5) +
-  annotate("text", 2.9, -1.1, size = 2.5, color = pal[2],
-           label = expression(paste("y=6.55-0.64×age; ", italic(Z), "=0.64 [0.58, 0.69]", sep = ""))) + # Cold
-  annotate("text", 2.9, -1.65, size = 2.5, color = pal[1],
-           label = expression(paste("y=5.56-0.75×age; ", italic(Z), "=0.76 [0.63, 0.88]", sep = ""))) + # Warm
-  NULL
-
-pWord1 <- p1 + theme(text = element_text(size = 12), 
-                     legend.position = c(0.9, 0.9),
-                     legend.spacing.y = unit(0, 'cm'),
-                     legend.key.size = unit(0, "cm"),
-                     legend.title = element_text(size = 10),
-                     legend.text = element_text(size = 8))
+  annotate("text", 2.1, -0.65, label = paste("n=", nrow(d), sep = ""), size = 2.5) +
+  annotate("text", 2.1, -1.1, size = 2.5, color = pal[2],
+           label = paste("y=6.55-0.64×age; Z=0.64 [0.58, 0.69]", sep = ""), fontface = "italic") + # Cold
+  annotate("text", 2.1, -1.65, size = 2.5, color = pal[1],
+           label = paste("y=5.56-0.75×age; Z=0.76 [0.63, 0.88]", sep = ""), fontface = "italic") + # Warm
+  theme(text = element_text(size = 12), 
+        legend.position = c(0.9, 0.9),
+        legend.spacing.y = unit(0, 'cm'),
+        legend.key.size = unit(0, "cm"),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8))
 
 # ggsave("figures/catch_curve.png", width = 6.5, height = 6.5, dpi = 600)
-
-
-##### Random year effects ==========================================================
-# http://mjskay.github.io/tidybayes/articles/tidy-brms.html
-get_variables(m1)
-
-# Plotting together...
-cold_slope_df <- m1 %>%
-  spread_draws(b_age, r_cohort[cohort, age]) %>% # Extract random effects and global effects
-  filter(age %in% c("age")) %>% # Filter the correct parameters. For some reason, I get all levels of r_year when I include multiple parameters, not when I do only r_year[year, age]
-  mutate(mean_slope = b_age,
-         Area = "Cold") %>%
-  mutate(slopes = mean_slope + r_cohort) 
-
-warm_slope_df <- m1 %>%
-  spread_draws(b_age, `b_age:area2Warm`, r_cohort[cohort, age]) %>% # Extract random effects and global effects
-  filter(age %in% c("age", "area2Warm:age")) %>% # Filter the correct parameters. Because the warm slope is an offset, I need also the cold slope. For some reason, I get all levels of r_year when I include multiple parameters, not when I do only r_year[year, age]
-  mutate(mean_slope = (b_age + `b_age:area2Warm`),
-         Area = "Warm") %>% # Calculate the average warm slope (not it's a difference to the b_age, i.e. the cold slope)
-  filter(age == "area2Warm:age") %>% # Filter only draws corresponding to the random effect that is the warm slope (not the cold slope)
-  mutate(slopes = mean_slope + r_cohort)
-  
-full_df <- bind_rows(cold_slope_df, warm_slope_df)
-
-p_random <- full_df %>% 
-  mutate(Z = slopes*-1) %>% # Convert from slopes to Z
-  ggplot(., aes(y = factor(cohort), x = Z, fill = factor(Area), color = factor(Area))) +
-  geom_vline(xintercept = c(0.64, 0.75), color = rev(pal), linetype = 2, alpha = 0.4, size = 0.5) +
-  stat_slab(alpha = 0.13, position = position_nudge(y = 0.05), color = NA) + 
-  stat_pointinterval(.width = c(.95), position = position_dodge(width = 0.25),
-                     size = 0.1, alpha = 0.8) +
-  scale_fill_manual(values = rev(pal)) +
-  scale_color_manual(values = rev(pal)) +
-  labs(y = "Cohort", x = expression(italic(Z))) + 
-  guides(fill = F, color = F) +
-  coord_cartesian(xlim = c(0.46, 0.88)) +
-  theme(text = element_text(size = 12),
-        axis.text.x = element_text(angle = 30, size = 9))
-
-ggsave("figures/supp/catch_curves_random_slopes.png", width = 6.5, height = 6.5, dpi = 600)  
-
 
 # https://bookdown.org/content/3890/interactions.html
 # http://mjskay.github.io/tidybayes/articles/tidy-brms.html
@@ -291,8 +248,9 @@ post_slope <- m1 %>%
   pivot_longer(1:2, names_to = ".variable", values_to = ".value") %>% 
   ggplot(aes(x = .value, fill = .variable, color = .variable)) +
   stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
-  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
-         color = FALSE) + 
+  # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
+  #        color = FALSE) +
+  guides(fill = FALSE, color = FALSE) +
   scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
   scale_color_manual(values = rev(pal)) +
   labs(x = expression(italic(Z)), fill = "") +
@@ -320,13 +278,55 @@ post_diff <- diff %>%
   scale_fill_manual(values = c("grey10", "grey70")) +
   annotate("text", 0.14, 0.95, size = 3.5, label = paste("prop. diff<0=", round(prop_diff, 3), sep = "")) +
   labs(x = expression(~italic(Z[warm])~-~italic(Z[cold]))) +
-  theme(legend.position = c(0.2, 0.8),
+  theme(legend.position = c(0.2, 0.7),
+        legend.text = element_text(size = 10),
+        legend.title = element_text(size = 10),
         legend.key.size = unit(0.2, "cm"),
         legend.background = element_blank())
 
-pWord1 / (post_slope | post_diff)  + plot_annotation(tag_levels = 'A')
+pcc / (post_slope | post_diff)  + plot_annotation(tag_levels = 'A')
 
 ggsave("figures/catch_curve.png", width = 5.5, height = 6.5, dpi = 600)
+
+
+##### Random year effects ==========================================================
+# http://mjskay.github.io/tidybayes/articles/tidy-brms.html
+get_variables(m1)
+
+# Plotting together...
+cold_slope_df <- m1 %>%
+  spread_draws(b_age, r_cohort[cohort, age]) %>% # Extract random effects and global effects
+  filter(age %in% c("age")) %>% # Filter the correct parameters. For some reason, I get all levels of r_year when I include multiple parameters, not when I do only r_year[year, age]
+  mutate(mean_slope = b_age,
+         Area = "Cold") %>%
+  mutate(slopes = mean_slope + r_cohort) 
+
+warm_slope_df <- m1 %>%
+  spread_draws(b_age, `b_age:area2Warm`, r_cohort[cohort, age]) %>% # Extract random effects and global effects
+  filter(age %in% c("age", "area2Warm:age")) %>% # Filter the correct parameters. Because the warm slope is an offset, I need also the cold slope. For some reason, I get all levels of r_year when I include multiple parameters, not when I do only r_year[year, age]
+  mutate(mean_slope = (b_age + `b_age:area2Warm`),
+         Area = "Warm") %>% # Calculate the average warm slope (not it's a difference to the b_age, i.e. the cold slope)
+  filter(age == "area2Warm:age") %>% # Filter only draws corresponding to the random effect that is the warm slope (not the cold slope)
+  mutate(slopes = mean_slope + r_cohort)
+
+full_df <- bind_rows(cold_slope_df, warm_slope_df)
+
+p_random <- full_df %>% 
+  mutate(Z = slopes*-1) %>% # Convert from slopes to Z
+  ggplot(., aes(y = factor(cohort), x = Z, fill = factor(Area), color = factor(Area))) +
+  geom_vline(xintercept = c(0.64, 0.75), color = rev(pal), linetype = 2, alpha = 0.4, size = 0.5) +
+  stat_slab(alpha = 0.13, position = position_nudge(y = 0.05), color = NA) + 
+  stat_pointinterval(.width = c(.95), position = position_dodge(width = 0.25),
+                     size = 0.1, alpha = 0.8) +
+  scale_fill_manual(values = rev(pal)) +
+  scale_color_manual(values = rev(pal)) +
+  labs(y = "Cohort", x = expression(italic(Z))) + 
+  guides(fill = F, color = F) +
+  coord_cartesian(xlim = c(0.46, 0.88)) +
+  theme(text = element_text(size = 12),
+        axis.text.x = element_text(angle = 30, size = 9))
+
+ggsave("figures/supp/catch_curves_random_slopes.png", width = 6.5, height = 6.5, dpi = 600)  
 
 
 ##### Model diagnostics & fit ======================================================

@@ -528,7 +528,7 @@ pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 #   Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 
 # Plot main predictions
-p1 <- dfm %>% 
+pvbge <- dfm %>% 
   data_grid(age = seq_range(age, by = 1),
             area = c("FM", "BT")) %>%
   mutate(areaC = ifelse(area == "FM", 1, 0),
@@ -544,14 +544,12 @@ p1 <- dfm %>%
   scale_color_manual(values = pal, labels = c("Warm", "Cold")) +
   labs(y = "Length [cm]", x = "Age [yrs]", fill = "Area", colour = "Area") +
   annotate("text", 8, 10, label = paste("n=", nrow(dfm), sep = ""), size = 3) +
-  NULL
-
-pWord1 <- p1 + theme(text = element_text(size = 12), # 12 for word doc
-                     legend.position = c(0.1, 0.9), 
-                     legend.spacing.y = unit(0, 'cm'),
-                     legend.key.size = unit(0, "cm"),
-                     legend.title = element_text(size = 10),
-                     legend.text = element_text(size = 10))
+  theme(text = element_text(size = 12), # 12 for word doc
+        legend.position = c(0.1, 0.9), 
+        legend.spacing.y = unit(0, 'cm'),
+        legend.key.size = unit(0, "cm"),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 10))
 
 # Plotting mcmc_dens and use patchwork to plot them together. Note I add the vertical
 # lines manually simply by extracting the fixed effects
@@ -564,8 +562,9 @@ post_K <-
   gather_draws(b_KC_Intercept, b_KW_Intercept) %>%
   ggplot(aes(x = .value, fill = .variable, color = .variable)) +
   stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
-  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
-         color = FALSE) + 
+  # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
+  #        color = FALSE) +
+  guides(fill = FALSE, color = FALSE) + 
   scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
   scale_color_manual(values = rev(pal)) +
   labs(x = expression(paste(italic(K), " [", yr^-1,"]", sep = "")), fill = "") +
@@ -605,13 +604,11 @@ post_diff_K <- ggplot(diff, aes(x = diff_K, fill = stat(x > 0))) +
   scale_fill_manual(values = c("grey10", "grey70")) +
   annotate("text", 0.11, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_K, 2), sep = "")) +
   labs(x = expression(~italic(K[warm])~-~italic(K[cold]))) +
-  theme(legend.position = c(0.2, 0.8),
+  theme(legend.position = c(0.2, 0.7),
         legend.key.size = unit(0.2, "cm"),
         legend.text = element_text(size = 8),
         legend.title = element_text(size = 10),
         legend.background = element_blank())
-
-post_diff_K
 
 post_diff_L_inf <- ggplot(diff, aes(x = diff_L_inf, fill = stat(x > 0))) +
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
@@ -619,15 +616,13 @@ post_diff_L_inf <- ggplot(diff, aes(x = diff_L_inf, fill = stat(x > 0))) +
   scale_fill_manual(values = c("grey10", "grey70")) +
   annotate("text", 22, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_L_inf, 2), sep = "")) +
   labs(x = expression(paste(~italic(L[infinity][warm])~-~italic(L[infinity][cold])))) +
-  theme(legend.position = c(0.15, 0.8),
+  theme(legend.position = c(0.2, 0.7),
         legend.key.size = unit(0.2, "cm"),
         legend.text = element_text(size = 8),
         legend.title = element_text(size = 10),
         legend.background = element_blank())
 
-post_diff_L_inf
-
-pWord1 / ((post_K/post_diff_K) | (post_L_inf/post_diff_L_inf)) +
+pvbge / ((post_K/post_diff_K) | (post_L_inf/post_diff_L_inf)) +
   plot_layout(heights = c(1.2, 1)) +
   plot_annotation(tag_levels = 'A')
 
