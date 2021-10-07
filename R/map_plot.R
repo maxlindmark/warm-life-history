@@ -8,6 +8,7 @@ library(tidyverse)
 library(sf)
 library(png)
 library(patchwork)
+library(cowplot)
 
 theme_set(theme_light(base_size = 12))
 
