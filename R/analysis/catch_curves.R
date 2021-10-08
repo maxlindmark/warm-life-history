@@ -62,6 +62,8 @@ df <- df %>% group_by(Area, year) %>%
   ungroup() %>%
   as.data.frame()
 
+length(unique(df$netID))
+
 # Test
 df %>% filter(year == 1995 & Area == "BT")
 df %>% filter(year == 1995 & Area == "BT") %>% distinct(netID)
@@ -98,7 +100,9 @@ df4 <- df3 %>%
   ungroup() %>% 
   rename("area" = "Area") %>% 
   mutate(cpue_numbers = catch_n/n_nets_year) # Get numbers CPUE, divide by the previously create n_nets, which is # of unique net ID's in each area and year
-         
+   
+head(df4)
+      
 # Test I get 1 unique row per age, year and area
 df4 %>%
   group_by(year, area, age) %>%
@@ -153,6 +157,7 @@ d <- d %>% filter(cohort > 1980)
 
 sort(unique(d$cohort))
 
+max(d$year)
 
 # C. FIT MODELS ====================================================================
 ##### Catch curves =================================================================

@@ -271,6 +271,13 @@ dfm %>%
 # Check unique years
 dfm %>% group_by(area, catch_year) %>% summarise(catch_year = (unique(catch_year))) %>% data.frame()
 
+# Check sample size:
+nrow(dfm)
+length(unique(dfm$ID))
+
+nrow(dfm) / length(unique(dfm$ID))
+
+max(dfm$catch_year)
 
 # C. FIT MODELS ====================================================================
 # I'm following the multilevel model vignette here: https://cran.r-project.org/web/packages/brms/index.html
