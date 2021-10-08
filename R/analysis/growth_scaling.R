@@ -279,6 +279,7 @@ nrow(dfm) / length(unique(dfm$ID))
 
 max(dfm$catch_year)
 
+
 # C. FIT MODELS ====================================================================
 # I'm following the multilevel model vignette here: https://cran.r-project.org/web/packages/brms/index.html
 # And this one for specifying random structure: https://discourse.mc-stan.org/t/levels-within-levels/8814/3
