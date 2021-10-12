@@ -366,7 +366,7 @@ proc.time() - ptm
 # prior_summary(m3s)
 
 # Save model object to not have to rerun it...
-saveRDS(m3s, "output/growth_scaling/m3s.rds")
+# saveRDS(m3s, "output/growth_scaling/m3s.rds")
 # m3s <- readRDS("output/growth_scaling/m3s.rds")
 
 prior_summary(m3s)
@@ -423,8 +423,8 @@ proc.time() - ptm
 # prior_summary(m4s)
 
 # Save model object to not have to rerun it...
-saveRDS(m4s, "output/growth_scaling/m4s.rds")
-#m4s <- readRDS("output/growth_scaling/m4s.rds")
+# saveRDS(m4s, "output/growth_scaling/m4s.rds")
+# m4s <- readRDS("output/growth_scaling/m4s.rds")
 
 
 # D. COMPARE MODELS ================================================================
