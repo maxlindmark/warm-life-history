@@ -166,10 +166,8 @@ p0 <- dfm %>%
   data_grid(age = seq_range(age, by = 1)) %>%
   add_predicted_draws(M0fmbt, re_formula = NA) %>%
   ggplot(aes(x = factor(age), y = length_cm)) +
-  stat_lineribbon(aes(y = .prediction), .width = c(.8), alpha = 0.2) +
-  stat_lineribbon(aes(y = .prediction), .width = c(.8), alpha = 0.8, fill = NA,
-                  color = "black") +
-  guides(fill = FALSE, color = guide_legend(override.aes = list(alpha = 1))) +
+  stat_lineribbon(aes(y = .prediction)) +
+  scale_fill_brewer(palette = "Blues") +
   labs(y = "Length [cm]", x = "Age [yrs]") +
   NULL
 
@@ -632,6 +630,8 @@ ggsave("figures/vbge_pred_K_Linf_post.png", width = 6.5, height = 6.5, dpi = 600
 ##### Random year effects ==========================================================
 # http://mjskay.github.io/tidybayes/articles/tidy-brms.html
 
+pal2 <- alpha(pal, alpha = 0.8)
+
 # Plot predictions by cohort:
 p2 <- dfm %>%
   data_grid(age = seq_range(age, by = 1),
@@ -641,27 +641,25 @@ p2 <- dfm %>%
          areaW = ifelse(area == "BT", 1, 0)) %>%
   add_predicted_draws(m1) %>%
   ggplot(aes(x = factor(age), y = length_cm, color = area, fill = area)) +
-  stat_lineribbon(aes(y = .prediction), .width = c(.8), alpha = 0.2) +
+  stat_lineribbon(aes(y = .prediction), .width = .95, alpha = 0.4) +
+  stat_lineribbon(aes(y = .prediction), .width = 0, alpha = 0.8) +
   geom_jitter(data = dfm, alpha = 0.2, width = 0.3,
               height = 0, size = 0.6) +
-  stat_lineribbon(aes(y = .prediction), .width = c(.8), alpha = 0.8,
-                  fill = NA, size = 0.8) +
   facet_wrap(~birth_year) +
-  scale_fill_manual(values = pal, labels = c("Warm", "Cold")) +
-  scale_color_manual(values = pal, labels = c("Warm", "Cold")) +
+  scale_fill_manual(values = pal2, labels = c("Warm", "Cold")) +
+  scale_color_manual(values = pal2, labels = c("Warm", "Cold")) +
   labs(y = "Length [cm]", x = "Age [yrs]", fill = "Area", colour = "Area") +
   NULL
 
-pWord2 <- p2 + theme(text = element_text(size = 12), # 12 for word doc
+pWord2 <- p2 + theme(text = element_text(size = 12),
                      legend.position = c(0.7, 0.1),
                      legend.title = element_text(size = 12),
                      legend.text = element_text(size = 12))
 
-ggsave("figures/supp/vbge_pred_year.png", width = 6.5, height = 6.5, dpi = 600)
+ggsave("figures/supp/vbge_pred_cohort.png", width = 6.5, height = 6.5, dpi = 600)
 
 # Cohort-specific VBGE parameters
 get_variables(m1)
-pal2 <- alpha(pal, alpha = 0.8)
 
 # Warm K
 pKW <- m1 %>%
@@ -669,7 +667,7 @@ pKW <- m1 %>%
                r_birth_year__KW[birth_year, Intercept]) %>%
   mutate(year_mean_KW = b_KW_Intercept + r_birth_year__KW) %>% # The random effects are offsets
   ggplot(aes(y = factor(birth_year), x = year_mean_KW)) +
-  stat_halfeye(fill = pal2[1], alpha = 0.8) + 
+  stat_halfeye(fill = pal2[1], alpha = 0.8, point_interval = median_qi, .width = 0.95) + 
   labs(y = "Cohort", x = expression(paste(italic(K), " [", yr^-1,"]", sep = ""))) + 
   ggtitle("Warm")
 
@@ -679,7 +677,7 @@ pKC <- m1 %>%
                r_birth_year__KC[birth_year, Intercept]) %>%
   mutate(year_mean_KC = b_KC_Intercept + r_birth_year__KC) %>% # The random effects are offsets
   ggplot(aes(y = factor(birth_year), x = year_mean_KC)) +
-  stat_halfeye(fill = pal2[2], alpha = 0.8) + 
+  stat_halfeye(fill = pal2[2], alpha = 0.8, point_interval = median_qi, .width = 0.95) + 
   labs(y = "Cohort", x = expression(paste(italic(K), " [", yr^-1,"]", sep = ""))) + 
   ggtitle("Cold")
 
@@ -693,8 +691,8 @@ pLinfW <- m1 %>%
                r_birth_year__LinfW[birth_year, Intercept]) %>%
   mutate(year_mean_LinfW = b_LinfW_Intercept + r_birth_year__LinfW) %>% # The random effects are offsets
   ggplot(aes(y = factor(birth_year), x = year_mean_LinfW)) +
-  stat_halfeye(fill = pal2[1], alpha = 0.8) + 
-  labs(y = "Cohort", x = expression(paste(italic(L[inf]), " [cm]"))) + 
+  stat_halfeye(fill = pal2[1], alpha = 0.8, point_interval = median_qi, .width = 0.95) + 
+  labs(y = "Cohort", x = expression(paste(italic(L[infinity]), " [cm]"))) + 
   coord_cartesian(xlim = c(26, 95)) +
   ggtitle("Warm")
 
@@ -704,8 +702,8 @@ pLinfC <- m1 %>%
                r_birth_year__LinfC[birth_year, Intercept]) %>%
   mutate(year_mean_LinfC = b_LinfC_Intercept + r_birth_year__LinfC) %>% # The random effects are offsets
   ggplot(aes(y = factor(birth_year), x = year_mean_LinfC)) +
-  stat_halfeye(fill = pal2[2], alpha = 0.8) + 
-  labs(y = "Cohort", x = expression(paste(italic(L[inf]), " [cm]"))) + 
+  stat_halfeye(fill = pal2[2], alpha = 0.8, point_interval = median_qi, .width = 0.95) + 
+  labs(y = "Cohort", x = expression(paste(italic(L[infinity]), " [cm]"))) + 
   coord_cartesian(xlim = c(26, 95)) +
   ggtitle("Cold")
 

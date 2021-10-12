@@ -289,39 +289,6 @@ max(dfm$catch_year)
 # https://cran.r-project.org/web/packages/insight/vignettes/insight.html
 # See the insight package for verifying model structure
 
-# m1 ==============================================================================
-# With quadratic interaction
-
-# m1 <- brm(bf(log_growth ~ log_length_ct*area2 + log_length_ct_sq*area2 + (1|birth_year/ID),
-#              sigma ~ log_length_ct),
-#           family = gaussian(), data = dfm, iter = 4000, cores = 3, chains = 3,
-#           save_all_pars = TRUE)
-# 
-# summary(m1)
-# plot(m1)
-# prior_summary(m1)
-
-# Save model object to not have to rerun it...
-#saveRDS(m1, "output/growth_scaling/m1.rds")
-#m1 <- readRDS("output/growth_scaling/m1.rds")
-
-
-# m2 ===============================================================================
-# No quadratic interaction
-# m2 <- brm(bf(log_growth ~ log_length_ct*area2 + log_length_ct_sq + (1|birth_year/ID),
-#              sigma ~ log_length_ct),
-#           family = gaussian(), data = dfm, iter = 4000, cores = 3, chains = 3,
-#           save_all_pars = TRUE)
-# 
-# summary(m2)
-# plot(m2)
-# prior_summary(m2)
-
-# Save model object to not have to rerun it...
-#saveRDS(m2, "output/growth_scaling/m2.rds")
-#m2 <- readRDS("output/growth_scaling/m2.rds")
-
-
 # Non-linear models ================================================================
 # Due to non-optimal QQ-plots with the log-linear, despite adding quad terms etc. I
 # here instead fit a non-linear model, dummy coded as the VBGE model
@@ -344,7 +311,7 @@ hist(rnorm(n = 10000, mean = -1.5, sd = 1))
 # Define priors
 prior0 <-
   prior(normal(500, 100), nlpar = "b1") +
-  prior(normal(-1.5, 1), nlpar = "b2")
+  prior(normal(-1.5, 0.5), nlpar = "b2")
   
 M0fmbt <- brm(
   bf(growth ~ b1*length^b2, 
@@ -360,15 +327,13 @@ p0 <- dfm_dummy %>%
   data_grid(length = seq_range(length, n = 101)) %>%
   add_predicted_draws(M0fmbt, re_formula = NA) %>%
   ggplot(aes(x = length, y = growth)) +
-  stat_lineribbon(aes(y = .prediction), .width = c(.8), alpha = 0.2) +
-  stat_lineribbon(aes(y = .prediction), .width = c(.8), alpha = 0.8, fill = NA,
-                  color = "black") +
-  guides(fill = FALSE, color = guide_legend(override.aes = list(alpha = 1))) +
+  stat_lineribbon(aes(y = .prediction)) +
+  scale_fill_brewer(palette = "Blues") +
   labs(y = expression(paste("Growth [%", yr^-1, "]")), x = "Length [cm]") +
   NULL
 
 pWord0 <- p0 + theme(text = element_text(size = 12), 
-                     legend.position = c(0.1, 0.9), 
+                     legend.position = c(0.9, 0.9), 
                      legend.title = element_text(size = 10),
                      legend.text = element_text(size = 10))
 
@@ -379,35 +344,8 @@ ggsave("figures/supp/growth_prior_pred_check.png", width = 6.5, height = 6.5, dp
 prior3 <-
   prior(normal(500, 100), nlpar = "b1W") +
   prior(normal(500, 100), nlpar = "b1C") +
-  prior(normal(-1.5, 1), nlpar = "b2W") +
-  prior(normal(-1.5, 1), nlpar = "b2C")
-
-# m3 has all parameters unique 
-# Start the clock!
-# ptm <- proc.time()
-# m3 <- brm(bf(growth ~ areaW*b1W*length^b2W + areaC*b1C*length^b2C, 
-#              b1W ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
-#              b1C ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
-#              b2W + b2C ~ 1,
-#              sigma ~ length, nl = TRUE),
-#           data = dfm_dummy, prior = prior3, iter = 4000, cores = 3, chains = 3,
-#           save_all_pars = TRUE,
-#           control = list(adapt_delta = 0.99))
-# proc.time() - ptm
-# user   system  elapsed 
-# 72.444   24.105 8907.052 
-# approx. 2.5 h
-
-# summary(m3)
-# plot(m3)
-# prior_summary(m3)
-
-# Save model object to not have to rerun it...
-#saveRDS(m3, "output/growth_scaling/m3.rds")
-#m3 <- readRDS("output/growth_scaling/m3.rds")
-
-# m3s 
-# m3 looks a bit overdispersed, so I'm fitting a student model as well
+  prior(normal(-1.2, 0.5), nlpar = "b2W") +
+  prior(normal(-1.2, 0.5), nlpar = "b2C")
 
 ptm <- proc.time()
 m3s <- brm(bf(growth ~ areaW*b1W*length^b2W + areaC*b1C*length^b2C, 
@@ -428,7 +366,7 @@ proc.time() - ptm
 # prior_summary(m3s)
 
 # Save model object to not have to rerun it...
-# saveRDS(m3s, "output/growth_scaling/m3s.rds")
+saveRDS(m3s, "output/growth_scaling/m3s.rds")
 # m3s <- readRDS("output/growth_scaling/m3s.rds")
 
 prior_summary(m3s)
@@ -464,29 +402,8 @@ prior_summary(m3s)
 prior4 <-
   prior(normal(500, 100), nlpar = "b1W") +
   prior(normal(500, 100), nlpar = "b1C") +
-  prior(normal(-1.5, 1), nlpar = "b2")
+  prior(normal(-1.2, 0.5), nlpar = "b2")
  
-# ptm <- proc.time()
-# m4 <- brm(bf(growth ~ areaW*b1*length^b2W + areaC*b1*length^b2C, 
-#              b1 ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
-#              b2W + b2C ~ 1,
-#              sigma ~ length, nl = TRUE),
-#           data = dfm_dummy, prior = prior4, iter = 4000, cores = 3, chains = 3,
-#           save_all_pars = TRUE,
-#           control = list(adapt_delta = 0.99))
-# proc.time() - ptm
-
-# summary(m4)
-# plot(m4)
-# prior_summary(m4)
-
-# Save model object to not have to rerun it...
-#saveRDS(m4, "output/growth_scaling/m4.rds")
-#m4 <- readRDS("output/growth_scaling/m4.rds")
-
-# m4s 
-# m4 looks a bit overdispersed, so I'm fitting a student model as well
-
 ptm <- proc.time()
 m4s <- brm(bf(growth ~ areaW*b1W*length^b2 + areaC*b1C*length^b2, 
               b1W ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
@@ -506,7 +423,7 @@ proc.time() - ptm
 # prior_summary(m4s)
 
 # Save model object to not have to rerun it...
-#saveRDS(m4s, "output/growth_scaling/m4s.rds")
+saveRDS(m4s, "output/growth_scaling/m4s.rds")
 #m4s <- readRDS("output/growth_scaling/m4s.rds")
 
 
@@ -514,22 +431,29 @@ proc.time() - ptm
 # Compare models: https://mc-stan.org/loo/articles/loo2-example.html
 # Expected log pointwise predictive density
 
-# loo_m1 <- loo(m1)
-# loo_m2 <- loo(m2)
-# loo_compare(loo_m1, loo_m2)
-# elpd_diff se_diff
-# m2  0.0       0.0   
-# m1 -1.4       0.8 
-
 # loo_m3 <- loo(m3, moment_match = TRUE)
 # loo_m4 <- loo(m4, moment_match = TRUE)
 loo_m3s <- loo(m3s, moment_match = TRUE)
+loo_m4s <- loo(m4s, moment_match = TRUE)
+
+pareto_k_vales(loo_m3s)
+
+#https://stackoverflow.com/questions/40536067/how-to-adjust-future-global-maxsize-in-r
+options(future.globals.maxSize = 1000000000 * 1024^2)
+
+loo_m3s <- loo(m3s, moment_match = TRUE, reloo = TRUE)
 loo_m4s <- loo(m4s, moment_match = TRUE, reloo = TRUE)
+
+plot(loo_m3s)
+abline(a = 0.7, b = 0)
+
+plot(loo_m4s)
+abline(a = 0.7, b = 0)
 
 loo_compare(loo_m3s, loo_m4s)
 # elpd_diff se_diff
-# m3s   0.0       0.0  
-# m4s -79.5      17.7  
+# m3s  0.0       0.0   
+# m4s -3.8       4.5 
 
 
 # E. PRODUCE FIGURES ===============================================================
@@ -557,9 +481,9 @@ pscatter <- dfm_dummy %>%
        x = "Length [cm]", fill = "Area", colour = "Area") +
   annotate("text", 35, 42, label = paste("n=", nrow(dfm), sep = ""), size = 3.5) +
   annotate("text", 35, 36, size = 3.5, color = pal[1],
-           label = expression(italic("y=433.54×"~length^-1.18))) + # Cold
+           label = expression(italic("y=433.40×"~length^-1.18))) + # Cold
   annotate("text", 35, 30, size = 3.5, color = pal[2],
-           label = expression(italic("y=510.73×"~length^-1.13))) + # Warm
+           label = expression(italic("y=509.12×"~length^-1.13))) + # Warm
   theme(text = element_text(size = 12), 
         legend.position = c(0.9, 0.9), 
         legend.spacing.y = unit(0, 'cm'),

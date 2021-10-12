@@ -328,8 +328,7 @@ p_random <- full_df %>%
   labs(y = "Cohort", x = expression(italic(Z))) + 
   guides(fill = F, color = F) +
   coord_cartesian(xlim = c(0.46, 0.88)) +
-  theme(text = element_text(size = 12),
-        axis.text.x = element_text(angle = 30, size = 9))
+  theme(text = element_text(size = 12))
 
 ggsave("figures/supp/catch_curves_random_slopes.png", width = 6.5, height = 6.5, dpi = 600)  
 
