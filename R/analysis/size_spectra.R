@@ -562,7 +562,6 @@ spectra <- spectra %>%
 
 # https://stats.stackexchange.com/questions/352772/what-do-blank-cells-mean-in-the-output-of-prior-summary-in-the-brms-package
 # > prior_summary(m1)
-
 # https://vasishth.github.io/Freq_CogSci/from-the-paired-t-test-to-the-linear-mixed-model.html
 # No year effect
 prior0 <-
@@ -580,7 +579,7 @@ m0 <- brm(b ~ -1 + area2,
 summary(m0)
 plot(m0)
 
-# Add year as predictor
+# Year as a fixed effect
 prior1 <-
   prior(normal(-2, 10), class = "b", coef = area2Cold) +
   prior(normal(-2, 10), class = "b", coef = area2Warm) +
@@ -699,7 +698,7 @@ pscatter <- spectra %>%
   scale_fill_manual(values = rev(pal)) +
   scale_color_manual(values = rev(pal)) +
   labs(color = "Area", fill = "Area", x = "Year",
-       y = expression(paste("Size-spectrum slope ", italic((b))))) +
+       y = expression(paste("Size-spectrum slope ", italic((gamma))))) +
   # guides(color = guide_legend(override.aes = list(linetype = 0, size = 2, shape = 16, alpha = 0.5,
   #                                                 color = rev(pal), fill = NA))) +
   guides(color = FALSE, fill = FALSE) + 
@@ -721,6 +720,18 @@ m1_fe <- fixef(m1, probs = seq(0, 1, by = 0.05)) %>% as.data.frame()
 posterior <- as.array(m1)
 dimnames(posterior)
 
+post_inter <- m1 %>%
+  gather_draws(b_area2Cold, b_area2Warm) %>%
+  ggplot(aes(x = .value, fill = .variable, color = .variable)) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
+  guides(color = FALSE, fill = FALSE) +
+  scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
+  scale_color_manual(values = rev(pal)) +
+  labs(x = expression(italic(beta[0,1])), fill = "") +
+  theme(legend.position = c(0.15, 0.9),
+        legend.key.size = unit(0.2, "cm"),
+        legend.background = element_blank())
+
 # http://mjskay.github.io/tidybayes/articles/tidy-brms.html
 diff <- m1 %>%
   spread_draws(b_area2Cold, b_area2Warm) %>%
@@ -737,7 +748,7 @@ post_diff <- m1 %>%
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
   scale_fill_manual(values = c("grey10", "grey70")) +
   annotate("text", 0.7, 0.95, hjust = 0.5, vjust = 0.5, size = 3.5, label = paste("prop. diff<0=", round(prop_diff, 2), sep = "")) +
-  labs(x = expression(~italic(alpha[warm])~-~italic(alpha[cold]))) +
+  labs(x = expression(~italic(beta[1])~-~italic(beta[0]))) +
   theme(legend.position = c(0.2, 0.7),
         legend.text = element_text(size = 10),
         legend.title = element_text(size = 10),
@@ -770,20 +781,6 @@ post_diff
 #   coord_cartesian(expand = 0)
 # 
 # t1 / t2
-
-post_inter <- m1 %>%
-  gather_draws(b_area2Cold, b_area2Warm) %>%
-  ggplot(aes(x = .value, fill = .variable, color = .variable)) +
-  stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
-  # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
-  #        color = FALSE) + 
-  guides(color = FALSE, fill = FALSE) +
-  scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
-  scale_color_manual(values = rev(pal)) +
-  labs(x = expression(italic(alpha)), fill = "") +
-  theme(legend.position = c(0.15, 0.9),
-        legend.key.size = unit(0.2, "cm"),
-        legend.background = element_blank())
 
 (pmle | pscatter) / (phist | (post_inter/post_diff)) +
   plot_annotation(tag_levels = "A")

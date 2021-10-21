@@ -30,6 +30,7 @@ library(tidybayes)
 library(RColorBrewer)
 library(patchwork)
 library(modelr)
+library(janitor)
 
 # Print package versions for versions
 sessionInfo() 
@@ -303,164 +304,139 @@ dfm_dummy <- data.frame(rbind(cbind(bt, areaW=1, areaC=0), cbind(fm, areaW=0, ar
 ggplot(dfm_dummy, aes(length, growth, color = area2)) +
   geom_point()
 
-hist(rnorm(n = 10000, mean = 500, sd = 100))
-hist(rnorm(n = 10000, mean = -1.5, sd = 1))
-
 # Simulate from the prior predictive distribution
 # M0: Prior predictive check: Warm+Cold merged =====================================
 # Define priors
 prior0 <-
-  prior(normal(500, 100), nlpar = "b1") +
-  prior(normal(-1.5, 0.5), nlpar = "b2")
+  prior(normal(500, 100), nlpar = "alpha") +
+  prior(normal(-1.2, 0.3), nlpar = "theta")
   
 M0fmbt <- brm(
-  bf(growth ~ b1*length^b2, 
-  b1 ~ 1, b2 ~ 1, nl = TRUE),
+  bf(growth ~ alpha*length^theta, alpha ~ 1, theta ~ 1, nl = TRUE),
   data = dfm_dummy, family = student(),
   prior = prior0,
   sample_prior = "only", 
   iter = 4000, thin = 1, cores = 3, chains = 3, seed = 9)
 
-pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
+# From add_fitted_draws {tidybayes}	which I use for the general predictions
+# add_predicted_draws adds draws from posterior predictions to the data. It corresponds to ... or brms::predict.brmsfit() in brms.
+pp <- conditional_effects(M0fmbt, method = "posterior_predict")
 
-p0 <- dfm_dummy %>% 
-  data_grid(length = seq_range(length, n = 101)) %>%
-  add_predicted_draws(M0fmbt, re_formula = NA) %>%
-  ggplot(aes(x = length, y = growth)) +
-  stat_lineribbon(aes(y = .prediction)) +
-  scale_fill_brewer(palette = "Blues") +
-  labs(y = expression(paste("Growth [%", yr^-1, "]")), x = "Length [cm]") +
-  NULL
-
-pWord0 <- p0 + theme(text = element_text(size = 12), 
-                     legend.position = c(0.9, 0.9), 
-                     legend.title = element_text(size = 10),
-                     legend.text = element_text(size = 10))
+plot(pp, plot = FALSE)[[1]] +
+  labs(y = expression(paste("Growth [%", yr^-1, "]")), x = "Length [cm]")
 
 ggsave("figures/supp/growth_prior_pred_check.png", width = 6.5, height = 6.5, dpi = 600)
 
 
-# m3 ===============================================================================
-prior3 <-
-  prior(normal(500, 100), nlpar = "b1W") +
-  prior(normal(500, 100), nlpar = "b1C") +
-  prior(normal(-1.2, 0.5), nlpar = "b2W") +
-  prior(normal(-1.2, 0.5), nlpar = "b2C")
+# m1 ===============================================================================
+# all parameters area-specific 
+prior <-
+  prior(normal(500, 100), nlpar = "alphaW") +
+  prior(normal(500, 100), nlpar = "alphaC") +
+  prior(normal(-1.2, 0.3), nlpar = "thetaW") +
+  prior(normal(-1.2, 0.3), nlpar = "thetaC")
 
 ptm <- proc.time()
-m3s <- brm(bf(growth ~ areaW*b1W*length^b2W + areaC*b1C*length^b2C, 
-              b1W ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
-              b1C ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
-              b2W + b2C ~ 1, nl = TRUE),
+m1 <- brm(bf(growth ~ areaW*alphaW*length^thetaW + areaC*alphaC*length^thetaC, 
+             alphaW ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
+             alphaC ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
+             thetaW + thetaC ~ 1, nl = TRUE),
            family = student(),
-           data = dfm_dummy, prior = prior3, iter = 4000, cores = 3, chains = 3,
-           seed = 9,
-           save_pars = save_pars(all = TRUE),
+           data = dfm_dummy, prior = prior, iter = 4000, cores = 3, chains = 3,
+           seed = 9, save_pars = save_pars(all = TRUE),
            control = list(adapt_delta = 0.99))
 proc.time() - ptm
 # user   system  elapsed 
 # 95.962   16.307 6181.922 
 
-# summary(m3s)
-# plot(m3s)
-# prior_summary(m3s)
+# summary(m1)
+# plot(m1)
+# prior_summary(m1)
 
 # Save model object to not have to rerun it...
-# saveRDS(m3s, "output/growth_scaling/m3s.rds")
-# m3s <- readRDS("output/growth_scaling/m3s.rds")
+# saveRDS(m1, "output/growth_scaling/m1.rds")
+# m1 <- readRDS("output/growth_scaling/m1.rds")
 
-prior_summary(m3s)
-#                   prior class      coef         group resp dpar nlpar bound
-# 1       normal(500, 100)     b                                     b1C      
-# 2                            b Intercept                           b1C      
-# 3       normal(500, 100)     b                                     b1W      
-# 4                            b Intercept                           b1W      
-# 5        normal(-1.5, 1)     b                                     b2C      
-# 6                            b Intercept                           b2C      
-# 7        normal(-1.5, 1)     b                                     b2W      
-# 8                            b Intercept                           b2W      
-# 9          gamma(2, 0.1)    nu                                              
-# 10 student_t(3, 0, 13.3)    sd                                     b1C      
-# 11 student_t(3, 0, 13.3)    sd                                     b1W      
-# 12                          sd              birth_year             b1C      
-# 13                          sd Intercept    birth_year             b1C      
-# 14                          sd              birth_year             b1W      
-# 15                          sd Intercept    birth_year             b1W      
-# 16                          sd           birth_year:ID             b1C      
-# 17                          sd Intercept birth_year:ID             b1C      
-# 18                          sd           birth_year:ID             b1W      
-# 19                          sd Intercept birth_year:ID             b1W      
-# 20 student_t(3, 0, 13.3) sigma
+prior_summary(m1)
+# prior class      coef         group resp dpar  nlpar bound       source
+# normal(500, 100)     b                                   alphaC               user
+# normal(500, 100)     b Intercept                         alphaC       (vectorized)
+# normal(500, 100)     b                                   alphaW               user
+# normal(500, 100)     b Intercept                         alphaW       (vectorized)
+# normal(-1.2, 0.3)     b                                   thetaC               user
+# normal(-1.2, 0.3)     b Intercept                         thetaC       (vectorized)
+# normal(-1.2, 0.3)     b                                   thetaW               user
+# normal(-1.2, 0.3)     b Intercept                         thetaW       (vectorized)
+# gamma(2, 0.1)    nu                                                     default
+# student_t(3, 0, 13.3)    sd                                   alphaC            default
+# student_t(3, 0, 13.3)    sd                                   alphaW            default
+# student_t(3, 0, 13.3)    sd              birth_year           alphaC       (vectorized)
+# student_t(3, 0, 13.3)    sd Intercept    birth_year           alphaC       (vectorized)
+# student_t(3, 0, 13.3)    sd              birth_year           alphaW       (vectorized)
+# student_t(3, 0, 13.3)    sd Intercept    birth_year           alphaW       (vectorized)
+# student_t(3, 0, 13.3)    sd           birth_year:ID           alphaC       (vectorized)
+# student_t(3, 0, 13.3)    sd Intercept birth_year:ID           alphaC       (vectorized)
+# student_t(3, 0, 13.3)    sd           birth_year:ID           alphaW       (vectorized)
+# student_t(3, 0, 13.3)    sd Intercept birth_year:ID           alphaW       (vectorized)
+# student_t(3, 0, 13.3) sigma                                                     default
 
 
+# m2 ===============================================================================
+# m2 has a common theta
 
-# m4 ===============================================================================
-# m4 has only b2 in common 
-
-# **Not sure the model can have b1 as random AND common, hence the b2 random now... 
 # Define priors
-prior4 <-
-  prior(normal(500, 100), nlpar = "b1W") +
-  prior(normal(500, 100), nlpar = "b1C") +
-  prior(normal(-1.2, 0.5), nlpar = "b2")
+prior2 <-
+  prior(normal(500, 100), nlpar = "alphaW") +
+  prior(normal(500, 100), nlpar = "alphaC") +
+  prior(normal(-1.2, 0.3), nlpar = "theta")
  
 ptm <- proc.time()
-m4s <- brm(bf(growth ~ areaW*b1W*length^b2 + areaC*b1C*length^b2, 
-              b1W ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
-              b1C ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
-              b2 ~ 1, nl = TRUE),
+m2 <- brm(bf(growth ~ areaW*alphaW*length^theta + areaC*alphaC*length^theta, 
+             alphaW ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
+             alphaC ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
+             theta ~ 1, nl = TRUE),
            family = student(),
-           data = dfm_dummy, prior = prior4, iter = 4000, cores = 3, chains = 3,
-           seed = 9,
-           save_pars = save_pars(all = TRUE),
+           data = dfm_dummy, prior = prior2, iter = 4000, cores = 3, chains = 3,
+           seed = 9, save_pars = save_pars(all = TRUE),
            control = list(adapt_delta = 0.99))
 proc.time() - ptm
-# user   system  elapsed 
-# 58.239   10.899 3870.172 
 
-# summary(m4s)
-# plot(m4s)
-# prior_summary(m4s)
+
+# summary(m2)
+# plot(m2)
+# prior_summary(m2)
 
 # Save model object to not have to rerun it...
-# saveRDS(m4s, "output/growth_scaling/m4s.rds")
-# m4s <- readRDS("output/growth_scaling/m4s.rds")
+# saveRDS(m2, "output/growth_scaling/m2.rds")
+# m2 <- readRDS("output/growth_scaling/m2.rds")
 
 
 # D. COMPARE MODELS ================================================================
 # Compare models: https://mc-stan.org/loo/articles/loo2-example.html
 # Expected log pointwise predictive density
 
-# loo_m3 <- loo(m3, moment_match = TRUE)
-# loo_m4 <- loo(m4, moment_match = TRUE)
-loo_m3s <- loo(m3s, moment_match = TRUE)
-loo_m4s <- loo(m4s, moment_match = TRUE)
+# loo_m1 <- loo(m1, moment_match = TRUE)
+# loo_m2 <- loo(m2, moment_match = TRUE)
+loo_m1 <- loo(m1, moment_match = TRUE)
+loo_m2 <- loo(m2, moment_match = TRUE)
 
-pareto_k_vales(loo_m3s)
-
-#https://stackoverflow.com/questions/40536067/how-to-adjust-future-global-maxsize-in-r
-options(future.globals.maxSize = 1000000000 * 1024^2)
-
-loo_m3s <- loo(m3s, moment_match = TRUE, reloo = TRUE)
-loo_m4s <- loo(m4s, moment_match = TRUE, reloo = TRUE)
-
-plot(loo_m3s)
+plot(loo_m1)
 abline(a = 0.7, b = 0)
 
-plot(loo_m4s)
+plot(loo_m2)
 abline(a = 0.7, b = 0)
 
-loo_compare(loo_m3s, loo_m4s)
+loo_compare(loo_m1, loo_m2)
 # elpd_diff se_diff
-# m3s  0.0       0.0   
-# m4s -3.8       4.5 
+# m1  0.0       0.0   
+# m2 -2.7       4.4 
 
 
 # E. PRODUCE FIGURES ===============================================================
 ##### Plot predictions =============================================================
 pal <- brewer.pal(n = 6, name = "Paired")[c(2, 6)]
 
-as.data.frame(fixef(m3s)) # Extract "fixed" effects from m2 for plotting the equation 
+as.data.frame(fixef(m1)) # Extract "fixed" effects from m1 for plotting the equation 
 
 pscatter <- dfm_dummy %>%
   ungroup() %>%
@@ -468,7 +444,7 @@ pscatter <- dfm_dummy %>%
             area2 = c("Warm", "Cold")) %>%
   mutate(areaC = ifelse(area2 == "Cold", 1, 0),
          areaW = ifelse(area2 == "Warm", 1, 0)) %>%
-  add_predicted_draws(m3s, re_formula = NA) %>%
+  add_predicted_draws(m1, re_formula = NA) %>%
   ggplot(aes(x = length, y = growth, color = area2, fill = area2)) +
   stat_lineribbon(aes(y = .prediction), .width = c(.90), alpha = 1/4) +
   geom_point(data = dfm_dummy, alpha = 0.05, size = 0.8) +
@@ -481,9 +457,9 @@ pscatter <- dfm_dummy %>%
        x = "Length [cm]", fill = "Area", colour = "Area") +
   annotate("text", 35, 42, label = paste("n=", nrow(dfm), sep = ""), size = 3.5) +
   annotate("text", 35, 36, size = 3.5, color = pal[1],
-           label = expression(italic("y=433.40×"~length^-1.18))) + # Cold
+           label = expression(italic("y=433.45×"~length^-1.18))) + # Cold
   annotate("text", 35, 30, size = 3.5, color = pal[2],
-           label = expression(italic("y=509.12×"~length^-1.13))) + # Warm
+           label = expression(italic("y=509.69×"~length^-1.13))) + # Warm
   theme(text = element_text(size = 12), 
         legend.position = c(0.9, 0.9), 
         legend.spacing.y = unit(0, 'cm'),
@@ -493,13 +469,12 @@ pscatter <- dfm_dummy %>%
 
 # Plot posteriors of parameters
 # http://mjskay.github.io/tidybayes/articles/tidy-brms.html
-post_b1 <- 
-  m3s %>%
-  gather_draws(b_b1C_Intercept, b_b1W_Intercept) %>%
+
+post_alpha <- 
+  m1 %>%
+  gather_draws(b_alphaC_Intercept, b_alphaW_Intercept) %>%
   ggplot(aes(x = .value, fill = .variable, color = .variable)) +
   stat_halfeye(alpha = 0.5, size = 5, .width = c(0.9)) +
-  # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
-  #        color = FALSE) +
   guides(color = FALSE, fill = FALSE) +
   scale_fill_manual(values = pal, labels = c("Cold", "Warm")) +
   scale_color_manual(values = pal) +
@@ -508,17 +483,15 @@ post_b1 <-
         legend.key.size = unit(0.2, "cm"),
         legend.background = element_blank())
 
-post_b2 <- 
-  m3s %>%
-  gather_draws(b_b2C_Intercept, b_b2W_Intercept) %>%
+post_theta <- 
+  m1 %>%
+  gather_draws(b_thetaC_Intercept, b_thetaW_Intercept) %>%
   ggplot(aes(x = .value, fill = .variable, color = .variable)) +
   stat_halfeye(alpha = 0.5, size = 5, .width = c(0.9)) +
-  # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
-  #        color = FALSE) +
   guides(fill = FALSE, color = FALSE) + 
   scale_fill_manual(values = pal, labels = c("Cold", "Warm")) +
   scale_color_manual(values = pal) +
-  labs(x = expression(italic(beta)), fill = "") +
+  labs(x = expression(italic(theta)), fill = "") +
   theme(legend.position = c(0.9, 0.9),
         legend.key.size = unit(0.2, "cm"),
         legend.background = element_blank())
@@ -526,20 +499,23 @@ post_b2 <-
 # Plot distribution of differences: see statistical rethinging 2 p.157 and:
 # https://bookdown.org/content/3890/interactions.html 
 # http://mjskay.github.io/tidybayes/articles/tidy-brms.html
-diff <- m3s %>%
-  spread_draws(b_b1C_Intercept, b_b1W_Intercept, b_b2C_Intercept, b_b2W_Intercept) %>%
-  mutate(diff_b1 = b_b1W_Intercept - b_b1C_Intercept,
-         diff_b2 = b_b2W_Intercept - b_b2C_Intercept) 
+diff <- m1 %>%
+  spread_draws(b_alphaC_Intercept, b_alphaW_Intercept, b_thetaC_Intercept, b_thetaW_Intercept) %>%
+  mutate(diff_alpha = b_alphaW_Intercept - b_alphaC_Intercept,
+         diff_theta = b_thetaW_Intercept - b_thetaC_Intercept) 
 
-prop_diff_b1 <- summarise(diff, Proportion_of_the_difference_below_0 = sum(diff_b1 < 0) / length(diff_b1))
-prop_diff_b2 <- summarise(diff, Proportion_of_the_difference_below_0 = sum(diff_b2 < 0) / length(diff_b2))
+prop_diff_alpha <- diff %>% 
+  summarise(Proportion_of_the_difference_below_0 = sum(diff_alpha < 0) / length(diff_alpha))
+
+prop_diff_theta <- diff %>% 
+  summarise(Proportion_of_the_difference_below_0 = sum(diff_theta < 0) / length(diff_theta))
 
 # https://bookdown.org/content/3890/interactions.html
-post_diff_b1 <- ggplot(diff, aes(x = diff_b1, fill = stat(x > 0))) +
+post_diff_alpha <- ggplot(diff, aes(x = diff_alpha, fill = stat(x > 0))) +
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
   scale_fill_manual(values = c("grey10", "grey70")) +
-  annotate("text", 140, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_b1, 3), sep = "")) +
+  annotate("text", 130, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_alpha, 3), sep = "")) +
   labs(x = expression(~italic(alpha[warm])~-~italic(alpha[cold]))) +
   theme(legend.position = c(0.2, 0.7),
         legend.key.size = unit(0.2, "cm"),
@@ -547,12 +523,12 @@ post_diff_b1 <- ggplot(diff, aes(x = diff_b1, fill = stat(x > 0))) +
         legend.title = element_text(size = 10),
         legend.background = element_blank())
 
-post_diff_b2 <- ggplot(diff, aes(x = diff_b2, fill = stat(x > 0))) +
+post_diff_theta <- ggplot(diff, aes(x = diff_theta, fill = stat(x > 0))) +
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
   scale_fill_manual(values = c("grey10", "grey70")) +
-  annotate("text", 0.07, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_b2, 3), sep = "")) +
-  labs(x = expression(~italic(beta[warm])~-~italic(beta[cold]))) +
+  annotate("text", 0.07, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_theta, 3), sep = "")) +
+  labs(x = expression(~italic(theta[warm])~-~italic(theta[cold]))) +
   theme(legend.position = c(0.2, 0.7),
         legend.key.size = unit(0.2, "cm"),
         legend.text = element_text(size = 8),
@@ -560,24 +536,118 @@ post_diff_b2 <- ggplot(diff, aes(x = diff_b2, fill = stat(x > 0))) +
         legend.background = element_blank())
 
 # Plotting all together
-pscatter / ((post_b1/post_diff_b1) | (post_b2/post_diff_b2)) +
+pscatter / ((post_alpha/post_diff_alpha) | (post_theta/post_diff_theta)) +
   plot_layout(heights = c(1.2, 1)) +
   plot_annotation(tag_levels = 'A')
 
 ggsave("figures/growth_pred.png", width = 6.5, height = 6.5, dpi = 600)
 
 
+##### Prior vs posterior ===========================================================
+# https://discourse.mc-stan.org/t/presenting-influence-of-different-priors/23393
+# Refit model and sample prior
+prior <-
+  prior(normal(500, 100), nlpar = "alphaW") +
+  prior(normal(500, 100), nlpar = "alphaC") +
+  prior(normal(-1.2, 0.3), nlpar = "thetaW") +
+  prior(normal(-1.2, 0.3), nlpar = "thetaC")
+
+ptm <- proc.time()
+m1_w_prior <- brm(bf(growth ~ areaW*alphaW*length^thetaW + areaC*alphaC*length^thetaC, 
+                     alphaW ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
+                     alphaC ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
+                     thetaW + thetaC ~ 1, nl = TRUE),
+                  family = student(), data = dfm_dummy, prior = prior,
+                  iter = 4000, cores = 3, chains = 3, seed = 9,
+                  save_pars = save_pars(all = TRUE), sample_prior = "yes",
+                  control = list(adapt_delta = 0.99))
+
+# saveRDS(m1_w_prior, "output/growth_scaling/m1_w_prior.rds")
+# m1_w_prior <- readRDS("output/growth_scaling/m1_w_prior.rds")
+
+# This is just to check variables names in the samples...
+# test <- brm(bf(growth ~ areaW*alphaW*length^thetaW + areaC*alphaC*length^thetaC, 
+#                alphaW ~ 1,
+#                alphaC ~ 1,
+#                thetaW + thetaC ~ 1, nl = TRUE),
+#             family = student(), data = dfm_dummy, prior = prior,
+#             iter = 1, cores = 1, chains = 1, seed = 9,
+#             save_pars = save_pars(all = TRUE), sample_prior = "yes",
+#             control = list(adapt_delta = 0.99))
+# test %>% posterior_samples() %>% clean_names()
+
+post <- m1_w_prior %>%
+  posterior_samples() %>%
+  clean_names() %>% 
+  dplyr::select(b_alpha_w_intercept, b_alpha_c_intercept, prior_b_alpha_w, prior_b_alpha_c,
+                b_theta_w_intercept, b_theta_c_intercept, prior_b_theta_w, prior_b_theta_c)
+
+post_long <- post %>% pivot_longer(cols = c(1:8), names_to = "Parameter", values_to = "value")
+
+# parameter "alpha"
+prior_post_alpha <- post_long %>%
+  filter(Parameter %in% c("b_alpha_w_intercept", "b_alpha_c_intercept", "prior_b_alpha_w", "prior_b_alpha_c")) %>% 
+  ggplot(., aes(value, fill = Parameter, color = Parameter))+
+  geom_density(alpha = 0.4) +
+  labs(x = expression(alpha)) +
+  coord_cartesian(expand = 0) +
+  scale_color_manual(values = c(NA, NA, "gray50", "gray50")) +
+  scale_fill_manual(values = c(pal[1], pal[2], NA, NA),
+                    labels = c(expression(alpha[cold]), expression(alpha[warm]), 
+                               expression(paste(Prior~italic(alpha[cold]))), 
+                               expression(paste(Prior~italic(alpha[warm]))))) + 
+  guides(color = FALSE,
+         fill = guide_legend(override.aes = list(color = c(NA, NA, "gray50", "gray50")))) +
+  theme(legend.position = c(0.2, 0.8),
+        legend.text.align = 0)
+
+# parameter "theta"
+prior_post_theta <- post_long %>%
+  filter(Parameter %in% c("b_theta_w_intercept", "b_theta_c_intercept", "prior_b_theta_w", "prior_b_theta_c")) %>% 
+  ggplot(., aes(value, fill = Parameter, color = Parameter))+
+  geom_density(alpha = 0.4) +
+  labs(x = expression(theta)) +
+  coord_cartesian(expand = 0) +
+  scale_color_manual(values = c(NA, NA, "gray50", "gray50")) +
+  scale_fill_manual(values = c(pal[1], pal[2], NA, NA),
+                    labels = c(expression(theta[cold]), expression(theta[warm]), 
+                               expression(paste(Prior~italic(theta[cold]))), 
+                               expression(paste(Prior~italic(theta[warm]))))) + 
+  guides(color = FALSE,
+         fill = guide_legend(override.aes = list(color = c(NA, NA, "gray50", "gray50")))) +
+  theme(legend.position = c(0.2, 0.8),
+        legend.text.align = 0)
+
+prior_post_theta_ins <- post_long %>%
+  filter(Parameter %in% c("b_theta_w_intercept", "b_theta_c_intercept", "prior_b_theta_w", "prior_b_theta_c")) %>% 
+  ggplot(., aes(value, fill = Parameter, color = Parameter))+
+  geom_density(alpha = 0.4) +
+  labs(x = expression(theta)) +
+  coord_cartesian(expand = 0, ylim = c(0, 1.8), xlim = c(-1.25, -1.05)) +
+  scale_color_manual(values = c(NA, NA, "gray50", "gray50")) +
+  scale_fill_manual(values = c(pal[1], pal[2], NA, NA)) + 
+  guides(color = FALSE, fill = FALSE)
+# prior_post_theta_ins
+
+top <- prior_post_alpha
+bottom <- prior_post_theta + inset_element(prior_post_theta_ins, left = 0.55, bottom = 0.5, right = 0.99, top = 0.99)
+
+top / bottom + plot_annotation(tag_levels = list(c('A', 'B'), ''))
+
+ggsave("figures/supp/growth_prior_post.png", width = 6.5, height = 8.5, dpi = 600)
+
+
 ##### Model diagnostics & fit ======================================================
 pal_diag <- rev(brewer.pal(n = 3, name = "Dark2"))
 
 # Chain convergence
-posterior <- as.array(m3s)
+posterior <- as.array(m1)
 dimnames(posterior)
 
 d1 <- mcmc_trace(posterior,
-                 pars = c("b_b1W_Intercept", "b_b1C_Intercept", "b_b2W_Intercept", "b_b2C_Intercept",
-                          "sd_birth_year__b1W_Intercept", "sd_birth_year:ID__b1W_Intercept",
-                          "sd_birth_year__b1C_Intercept", "sd_birth_year:ID__b1C_Intercept", 
+                 pars = c("b_alphaW_Intercept", "b_alphaC_Intercept", "b_thetaW_Intercept", "b_thetaC_Intercept",
+                          "sd_birth_year__alphaW_Intercept", "sd_birth_year:ID__alphaW_Intercept",
+                          "sd_birth_year__alphaC_Intercept", "sd_birth_year:ID__alphaC_Intercept", 
                           "sigma", "nu"),
                  facet_args = list(ncol = 3, strip.position = "left")) + 
   theme(text = element_text(size = 12),
@@ -589,14 +659,14 @@ d1 <- mcmc_trace(posterior,
 # The following two plots exhaust the memory, following this helps:
 # https://stackoverflow.com/questions/51248293/error-vector-memory-exhausted-limit-reached-r-3-5-0-macos
 d2 <- dfm_dummy %>%
-  add_residual_draws(m3s) %>%
+  add_residual_draws(m1) %>%
   ggplot(aes(x = .row, y = .residual)) +
   stat_pointinterval(alpha = 0.5, size = 0.7) + 
   theme(text = element_text(size = 12))
 
 # qq-plot
 # d3 <- dfm_dummy %>%
-#   add_residual_draws(m3s) %>%
+#   add_residual_draws(m1) %>%
 #   median_qi() %>%
 #   ggplot(aes(sample = .residual)) +
 #   geom_qq_line() +
@@ -607,12 +677,13 @@ d2 <- dfm_dummy %>%
 # https://stackoverflow.com/questions/42493048/computation-failed-for-stat-summary-what-must-be-a-character-string-or-a-func
 # https://www.seascapemodels.org/rstats/2017/10/06/qqplot-non-normal-glm.html
 
-summary(m3s) # Extract "fixed" effects from m2 for plotting the equation 
-nu <- 7.26
+summary(m1)$spec_pars # Extract "fixed" effects from m1 for plotting the equation 
+nu <- summary(m1)$spec_pars[2, 1]
+nu
 
 # "Base" version
 # t <- dfm_dummy %>%
-#  add_residual_draws(m3s) %>%
+#  add_residual_draws(m1) %>%
 #  median_qi()
 # resids <- t$.residual
 # n <- nrow(dfm_dummy)
@@ -623,7 +694,7 @@ nu <- 7.26
 # Below ggplot version (check they are the same!)
 #?geom_qq_line. Does not take a df argument but dparams, a bit strange
 d3 <- dfm_dummy %>%
-add_residual_draws(m3s) %>%
+add_residual_draws(m1) %>%
   median_qi() %>%
   ggplot(aes(sample = .residual)) +
   geom_qq_line(distribution = qt, dparams = nu) +
@@ -631,7 +702,7 @@ add_residual_draws(m3s) %>%
   theme(text = element_text(size = 12))
 
 # Posterior predictive
-d4 <- pp_check(m3s) + 
+d4 <- pp_check(m1) + 
   theme(text = element_text(size = 12),
         legend.position = c(0.15, 0.95),
         legend.background = element_rect(fill = NA)) + 

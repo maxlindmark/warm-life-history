@@ -209,9 +209,12 @@ extract_eq(m1)</code></pre>
 <p><span class="math display">\[
 \operatorname{length} = \beta_{0}(\operatorname{area}_{\operatorname{BT}}) + \beta_{1}(\operatorname{area}_{\operatorname{FM}}) + \beta_{2}(\operatorname{catch\_year}) + \epsilon
 \]</span></p>
-</div>
-<div id="random-intercept" class="section level3">
-<h3>Random intercept</h3>
+<pre class="r"><code>m1b &lt;- lm(length ~ -1 + area * catch_year, data = df)
+#tex_preview(extract_eq(m1))
+extract_eq(m1b)</code></pre>
+<p><span class="math display">\[
+\operatorname{length} = \beta_{0}(\operatorname{area}_{\operatorname{BT}}) + \beta_{1}(\operatorname{area}_{\operatorname{FM}}) + \beta_{2}(\operatorname{catch\_year}) + \beta_{3}(\operatorname{area}_{\operatorname{FM}} \times \operatorname{catch\_year}) + \epsilon
+\]</span> ### Random intercept</p>
 <pre class="r"><code>m2 &lt;- lmer(length ~ age + (1 |birth_year), data = df)
 extract_eq(m2)</code></pre>
 <p><span class="math display">\[
@@ -304,6 +307,20 @@ extract_eq(hsb2)
 \right)
  \right)
     \text{, for sch.id j = 1,} \dots \text{,J}
+\end{aligned}
+\]</span></p>
+</div>
+<div id="uncorrelated-intercept-and-slope-varying-in-more-than-two-levels" class="section level3">
+<h3>Uncorrelated intercept and slope, varying in more than two levels!</h3>
+<pre class="r"><code>m2.2 &lt;- lmer(length ~ age + (1|birth_year/ID), data = df)
+extract_eq(m2.2)</code></pre>
+<p><span class="math display">\[
+\begin{aligned}
+  \operatorname{length}_{i}  &amp;\sim N \left(\alpha_{j[i],k[i]} + \beta_{1}(\operatorname{age}), \sigma^2 \right) \\
+    \alpha_{j}  &amp;\sim N \left(\mu_{\alpha_{j}}, \sigma^2_{\alpha_{j}} \right)
+    \text{, for ID:birth_year j = 1,} \dots \text{,J} \\
+    \alpha_{k}  &amp;\sim N \left(\mu_{\alpha_{k}}, \sigma^2_{\alpha_{k}} \right)
+    \text{, for birth_year k = 1,} \dots \text{,K}
 \end{aligned}
 \]</span></p>
 </div>

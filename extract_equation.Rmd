@@ -142,6 +142,14 @@ $$
 \end{aligned}
 $$
 
+### Uncorrelated intercept and slope, varying in more than two levels!
+
+```{r message=FALSE, warning=FALSE}
+m2.2 <- lmer(length ~ age + (1|birth_year/ID), data = df)
+extract_eq(m2.2)
+```
+
+
 ### Correlated slope and intercept
 
 ```{r message=FALSE, warning=FALSE, results="hide"}

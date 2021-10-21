@@ -213,7 +213,7 @@ loo_compare(loo_m0, loo_m1)
 ##### Plot Predictions =============================================================
 pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 
-as.data.frame(fixef(m1)) # Extract "fixed" effects from m2 for plotting the equation 
+as.data.frame(fixef(m1)) # Extract "fixed" effects from m1 for plotting the equation 
 
 pcc <- d %>%
   ungroup() %>%
