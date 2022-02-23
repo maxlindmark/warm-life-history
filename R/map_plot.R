@@ -56,7 +56,7 @@ ggplot(swe_coast_proj) +
   geom_sf() +
   geom_point(data = df, aes(x = X, y = Y), size = 5, shape = 15, color = "red") +
   annotate("text", label = "Sweden", x = xmin + 0.33*xrange, y = ymin + 1.4*yrange,
-           color = "black", size = 7) +
+           color = "black", size = 6) +
   labs(x = "Longitude", y = "Latitude") +
   geom_segment(aes(x = xmin + 0.58*xrange, y = ymin + 1.535*yrange,
                    xend = xmin + 1*xrange, yend = ymin + 1.73*yrange),
