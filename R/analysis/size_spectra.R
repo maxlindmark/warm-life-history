@@ -81,7 +81,7 @@ p2 <- ggplot(df, aes(factor(length_group))) +
 p1/p2
 
 # Before we process data any further, save it because we will use it in this format
-# for analysing mean size (i.e. we need 1 row = 1 ind)
+# for analyzing mean size (i.e. we need 1 row = 1 ind)
 
 size_df <- df
 
@@ -98,6 +98,14 @@ df2 <- df %>%
   ungroup() %>% 
   mutate(effort_id = paste(year, Area, sep = ".")) %>% 
   as.data.frame()
+
+# Plot sample size by year and quarter
+df2 %>% 
+  group_by(year, Area) %>% 
+  summarise(n_tot = sum(catch_n)) %>% 
+  ggplot(aes(year, n_tot)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~Area)
 
 # Now we need to get the effort back in there
 df_effort <- df %>%
@@ -167,19 +175,48 @@ p3 <- ggplot(df4, aes(factor(round(wmin, digits = 3)), cpue_biom)) +
 df4 <- df4 %>% filter(wmin > 50) %>% as.data.frame()
 
 # Plot again
-p4 <- ggplot(df4, aes(factor(round(wmin, digits = 3)), cpue_biom)) + 
+p4_bt <- df4 %>% 
+  filter(area == "BT") %>% 
+  ggplot(aes(factor(round(wmin, digits = 1)), cpue_biom)) + 
   geom_bar(stat = "identity") + 
-  facet_wrap(~ area, scales = "free") +
+  facet_wrap(~ year, scales = "free") +
   theme_classic() + 
   coord_cartesian(expand = 0)
 
-p3/p4
+df4 %>% 
+  group_by(year, area) %>% 
+  summarise(max(wmin)) %>% 
+  ggplot(aes(year, `max(wmin)`, color = area)) + 
+  geom_point() + 
+  stat_smooth(method = "lm")
+
+df4 %>% 
+  group_by(year, area) %>% 
+  summarise(max(wmax)) %>% 
+  ggplot(aes(year, `max(wmax)`, color = area)) + 
+  geom_point() + 
+  stat_smooth(method = "lm")
+
+p4_fm <- df4 %>% 
+  filter(area == "FM") %>% 
+  ggplot(aes(factor(round(wmin, digits = 3)), cpue_biom)) + 
+  geom_bar(stat = "identity") + 
+  facet_wrap(~ year, scales = "free") +
+  theme_classic() + 
+  coord_cartesian(expand = 0)
+
+p4_fm
+
 
 
 # C. FIT SIZE SPECTRUM SLOPE MODELS ================================================
 # Test with my data
 dataBintest <- df4 %>% rename("Year" = "year",
                               "Number" = "cpue_numbers")
+
+colnames(dataBintest)
+head(dataBintest)
+sort(unique(dataBintest$effort_id))
 
 
 # Forsmark =========================================================================
@@ -500,14 +537,17 @@ b_cold_upr <- round(filter(FM_spectra, Year == fullYears[i-2])$confMax, 2)
 b_warm_lwr <- round(filter(BT_spectra, Year == fullYears[i-2])$confMin, 2) #WATCH OUT FOR THE INDEX!
 b_cold_lwr <- round(filter(FM_spectra, Year == fullYears[i-2])$confMin, 2)
 
+data_year2 <- data_year2 %>% 
+  mutate(area_plot = ifelse(area == "Warm", "Heat", "Ref"))
+
 pmle <- ggplot(data_year2) +
   geom_rect(data = data_year,
             aes(xmin = wmin, xmax = wmax, ymin = lowCount, ymax = highCount, fill = area),
             alpha = 0.2) +
-  geom_line(aes(x.PLB, y.PLB, color = area), size = 1.3, alpha = 0.8) +
-  geom_line(aes(x.PLB, y.PLB.confMin, color = area), linetype = 2, alpha = 0.8) +
-  geom_line(aes(x.PLB, y.PLB.confMax, color = area), linetype = 2, alpha = 0.8) +
-  scale_color_manual(values = rev(pal), name = "Area") +
+  geom_line(aes(x.PLB, y.PLB, color = area_plot), size = 1.3, alpha = 0.8) +
+  geom_line(aes(x.PLB, y.PLB.confMin, color = area_plot), linetype = 2, alpha = 0.8) +
+  geom_line(aes(x.PLB, y.PLB.confMax, color = area_plot), linetype = 2, alpha = 0.8) +
+  scale_color_manual(values = pal, name = "Area") +
   scale_fill_manual(values = rev(pal)) + 
   scale_x_log10() +
   scale_y_log10() +
@@ -515,10 +555,10 @@ pmle <- ggplot(data_year2) +
   coord_cartesian(ylim = c(0.1, 100)) +
   labs(x = "Body mass, x [g]", y = "Number of values ≥ x") +
   theme(legend.position = c(0.8, 0.9)) +
-  guides(color = guide_legend(override.aes = list(linetype = 1, size = 2, alpha = 0.3, color = rev(pal)))) +
+  guides(color = guide_legend(override.aes = list(linetype = 1, size = 2, alpha = 0.3, color = pal))) +
   annotate("text", 150, 0.2, size = 3.5, label = paste("b=", b_warm, " [",  b_warm_lwr ,",", b_warm_upr, "]", sep = ""),
            color = pal[1], fontface = "italic") +
-  annotate("text", 135, 0.13, size = 3.5, label = paste("b=", b_cold, " [",  b_cold_lwr ,",", b_cold_upr, "]", sep = ""),
+  annotate("text", 150, 0.13, size = 3.5, label = paste("b=", b_cold, " [",  b_cold_lwr ,",", b_cold_upr, "]", sep = ""),
            color = pal[2], fontface = "italic") +
   theme(text = element_text(size = 12), 
         legend.position = c(0.9, 0.9),
@@ -552,7 +592,7 @@ pmle <- ggplot(data_year2) +
 #   labs(x = "Body mass, x [g]", y = "Number of values ≥ x") +
 #   NULL
 
-  
+
 # D. FIT MODELS ====================================================================
 # Mean center year variable
 spectra <- spectra %>%
@@ -596,6 +636,75 @@ m1 <- brm(
 
 summary(m1)
 plot(m1)
+
+#### Meta-analytic model
+# https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/bayesian-ma.html
+# prior_mm <- c(prior(normal(0,3), class = b))
+# 
+# mm <- brm(
+#   b | se(stdErr) ~ area,
+#   family = student(), data = spectra, iter = 4000, cores = 3, chains = 3,
+#   seed = 9,
+#   save_pars = save_pars(all = TRUE),
+#   #prior = prior_mm
+# )
+# 
+# pp_check(mm)
+# summary(mm)
+# 
+# pal_diag <- rev(brewer.pal(n = 3, name = "Dark2"))
+# 
+# # Chain convergence
+# posterior <- as.array(mm)
+# dimnames(posterior)
+# 
+# d1 <- mcmc_trace(posterior,
+#                  pars = c("b_Intercept", "b_areaFM", "nu", "Intercept"),
+#                  facet_args = list(ncol = 2, strip.position = "left")) + 
+#   theme(text = element_text(size = 12),
+#         strip.text = element_text(size = 6),
+#         legend.position = "top") + 
+#   scale_color_manual(values = alpha(pal_diag, alpha = 0.8))
+# 
+# # Resid vs fitted
+# d2 <- spectra %>%
+#   add_residual_draws(mm) %>%
+#   ggplot(aes(x = .row, y = .residual)) +
+#   stat_pointinterval(alpha = 0.5, size = 0.7) + 
+#   theme(text = element_text(size = 12))
+# 
+# # qq-plot
+# # d3 <- d %>%
+# #   add_residual_draws(m1) %>%
+# #   median_qi() %>%
+# #   ggplot(aes(sample = .residual)) +
+# #   geom_qq_line() +
+# #   geom_qq(alpha = 0.8) +
+# #   theme(text = element_text(size = 12))
+# 
+# summary(mm)$spec_pars
+# nu <- summary(mm)$spec_pars[2, 1]
+# nu
+# 
+# d3 <- spectra %>%
+#   add_residual_draws(mm) %>%
+#   median_qi() %>%
+#   ggplot(aes(sample = .residual)) +
+#   geom_qq_line(distribution = qt, dparams = nu) +
+#   geom_qq(alpha = 0.8, distribution = qt, dparams = nu) +
+#   theme(text = element_text(size = 12))
+# 
+# # Posterior predictive
+# d4 <- pp_check(mm) + 
+#   theme(text = element_text(size = 12),
+#         legend.position = c(0.15, 0.95),
+#         legend.background = element_rect(fill = NA)) + 
+#   scale_color_manual(values = rev(pal_diag)) +
+#   labs(color = "")
+# 
+# d1 / (d2 / (d3 + d4)) + 
+#   plot_annotation(tag_levels = 'A')
+####
 
 # Interaction between year and area
 prior2 <-
@@ -786,6 +895,31 @@ post_diff
   plot_annotation(tag_levels = "A")
 
 ggsave("figures/size_spec.png", width = 6.5, height = 6.5, dpi = 600)
+
+##### V2
+post_box <- spectra %>%
+  ggplot(aes(area2, y = b, color = area2, fill = area2, group = area2)) +
+  geom_point(data = spectra, alpha = 0.6, size = 3, shape = 21, color = "white") +
+  geom_line(data = spectra, aes(area2, b, group = Year), color = "grey30") +
+  geom_boxplot(fill = NA, width = 0.2) +
+  scale_fill_manual(values = rev(pal)) +
+  scale_color_manual(values = rev(pal)) +
+  guides(color = "none", fill = "none") +
+  labs(color = "Area", fill = "Area", x = "Area",
+       y = expression(paste("Size-spectrum slope ", italic((gamma))))) +
+  theme(text = element_text(size = 12), 
+        legend.spacing.y = unit(0, 'cm'),
+        legend.key.size = unit(0, "cm"),
+        legend.position = c(0.11, 0.9), 
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 10),
+        legend.key = element_blank())
+post_box
+
+pmle / (phist | post_box) +
+  plot_annotation(tag_levels = "A")
+
+ggsave("figures/size_spec_v2.png", width = 6.5, height = 6.5, dpi = 600)
 
 
 ##### Model diagnostics & fit ======================================================
