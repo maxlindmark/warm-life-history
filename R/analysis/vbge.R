@@ -492,10 +492,11 @@ pvbge <- dfm %>%
   stat_lineribbon(aes(y = exp(.prediction)), .width = c(.5, 0.9), alpha = 0.2, size = 0.8) +
   geom_jitter(data = dfm, alpha = 0.1, width = 0.3, height = 0, size = 0.8) +
   stat_lineribbon(aes(y = exp(.prediction)), .width = 0, alpha = 0.8, size = 0.8) +
-  guides(fill = FALSE,
-         color = guide_legend(override.aes = list(linetype = 0, size = 3, shape = 16, alpha = 0.5))) +
-  scale_fill_manual(values = pal, labels = c("Warm", "Cold")) +
-  scale_color_manual(values = pal, labels = c("Warm", "Cold")) +
+  guides(fill = "none",
+         color = guide_legend(override.aes = list(linetype = 0, fill = NA,
+                                                  size = 3, shape = 16, alpha = 0.5))) +
+  scale_fill_manual(values = pal, labels = c("Heat", "Ref")) +
+  scale_color_manual(values = pal, labels = c("Heat", "Ref")) +
   labs(y = "Length [cm]", x = "Age [yrs]", fill = "Area", colour = "Area") +
   annotate("text", 8, 10, label = paste("n=", nrow(dfm), sep = ""), size = 3) +
   theme(text = element_text(size = 12), # 12 for word doc
@@ -518,7 +519,7 @@ post_K <-
   stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
   # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
   #        color = FALSE) +
-  guides(fill = FALSE, color = FALSE) + 
+  guides(fill = "none", color = "none") + 
   scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
   scale_color_manual(values = rev(pal)) +
   labs(x = expression(paste(italic(K), " [", yr^-1,"]", sep = "")), fill = "") +
@@ -533,7 +534,7 @@ post_L_inf <-
   stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
   # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
   #        color = FALSE) +
-  guides(fill = FALSE, color = FALSE) + 
+  guides(fill = "none", color = "none") + 
   scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
   scale_color_manual(values = rev(pal)) +
   labs(x = expression(paste(italic(L[infinity]), " [cm]")), fill = "") +
@@ -554,10 +555,10 @@ prop_diff_L_inf <- summarise(diff, Proportion_of_the_difference_below_0 = sum(di
 # https://bookdown.org/content/3890/interactions.html
 post_diff_K <- ggplot(diff, aes(x = diff_K, fill = stat(x > 0))) +
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
-  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = "none") + 
   scale_fill_manual(values = c("grey10", "grey70")) +
   annotate("text", 0.11, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_K, 2), sep = "")) +
-  labs(x = expression(~italic(K[warm])~-~italic(K[cold]))) +
+  labs(x = expression(~italic(K[heat])~-~italic(K[ref]))) +
   theme(legend.position = c(0.2, 0.7),
         legend.key.size = unit(0.2, "cm"),
         legend.text = element_text(size = 8),
@@ -566,10 +567,10 @@ post_diff_K <- ggplot(diff, aes(x = diff_K, fill = stat(x > 0))) +
 
 post_diff_L_inf <- ggplot(diff, aes(x = diff_L_inf, fill = stat(x > 0))) +
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
-  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = "none") + 
   scale_fill_manual(values = c("grey10", "grey70")) +
   annotate("text", 22, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_L_inf, 2), sep = "")) +
-  labs(x = expression(paste(~italic(L[infinity][warm])~-~italic(L[infinity][cold])))) +
+  labs(x = expression(paste(~italic(L[infinity][heat])~-~italic(L[infinity][ref])))) +
   theme(legend.position = c(0.2, 0.7),
         legend.key.size = unit(0.2, "cm"),
         legend.text = element_text(size = 8),
