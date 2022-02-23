@@ -159,6 +159,21 @@ sort(unique(d$cohort))
 
 max(d$year)
 
+# Plot data
+
+d %>% filter(area == "BT") %>% 
+  ggplot(aes(age, log_cpue)) + 
+  geom_point() + 
+  stat_smooth(method = "lm", se = FALSE) + 
+  facet_wrap(~ cohort)
+
+d %>% filter(area == "FM") %>% 
+  ggplot(aes(age, log_cpue)) + 
+  geom_point() + 
+  stat_smooth(method = "lm", se = FALSE) + 
+  facet_wrap(~ cohort)
+
+
 # C. FIT MODELS ====================================================================
 ##### Catch curves =================================================================
 # See this for notation: https://solomonkurz.netlify.app/post/2020-12-09-multilevel-models-and-the-index-variable-approach/ 
@@ -208,6 +223,23 @@ loo_compare(loo_m0, loo_m1)
 # m1  0.0       0.0   
 # m0 -1.2       2.1 
 
+# Poisson as per Nelson 2021 ICES and Millar 2014 CJFAS
+# Area-specific slopes that also vary by year (uncorrelated random effects)
+# Here I should use n_nets as offset and use catch_n
+# m_pois <- brm(
+#   catch_n ~ age + (1 + age|cohort), #+ offset(n_nets_year),
+#   family = poisson(link = "log"), data = d, iter = 4000, cores = 3, chains = 3,
+#   seed = 9,
+#   save_pars = save_pars(all = TRUE),
+#   #prior = prior0,
+#   control = list(adapt_delta = 0.99)
+# )
+# # 
+# summary(m_pois)
+# plot(m_pois)
+# conditional_effects(m_pois)
+#loo_m1 <- loo(m1, moment_match = TRUE)
+
 
 # D. PRODUCE FIGURES ===============================================================
 ##### Plot Predictions =============================================================
@@ -215,31 +247,37 @@ pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 
 as.data.frame(fixef(m1)) # Extract "fixed" effects from m1 for plotting the equation 
 
+d <- d %>% mutate(area_plot = ifelse(area2 == "Warm", "Heat", "Ref"))
+
 pcc <- d %>%
   ungroup() %>%
   data_grid(age = seq_range(age, by = 1),
             area2 = c("Warm", "Cold")) %>%
+  mutate(area_plot = ifelse(area2 == "Warm", "Heat", "Ref")) %>% 
   add_predicted_draws(m1, re_formula = NA) %>%
-  ggplot(aes(factor(age), y = log_cpue, color = area2, fill = area2)) +
+  ggplot(aes(factor(age), y = log_cpue, color = area_plot, fill = area_plot)) +
   stat_lineribbon(aes(y = .prediction), .width = c(.90, .50), alpha = 0.25, size = 0.5) +
-  geom_jitter(data = d, alpha = 0.9, size = 1.3, width = 0.2, height = 0, shape = 21, color = "white") +
+  geom_jitter(data = d, aes(factor(age), y = log_cpue, fill = area_plot),
+              alpha = 0.9, size = 1.3, width = 0.2, height = 0, shape = 21, color = "white") +
   stat_lineribbon(aes(y = .prediction), .width = 0, alpha = 0.8, size = 0.5) +
-  scale_fill_manual(values = rev(pal)) +
-  scale_color_manual(values = rev(pal)) +
+  scale_fill_manual(values = pal) +
+  scale_color_manual(values = pal) +
   labs(color = "Area", fill = "Area", x = "Age [yrs]", y = "Log(CPUE)") +
   guides(color = guide_legend(override.aes = list(linetype = 0, size = 2, shape = 16, alpha = 0.5,
-                                                  color = rev(pal), fill = NA))) +
+                                                  color = pal, fill = NA))) +
   annotate("text", 2.1, -0.65, label = paste("n=", nrow(d), sep = ""), size = 2.5) +
   annotate("text", 2.1, -1.1, size = 2.5, color = pal[2],
            label = paste("y=6.55-0.64×age; Z=0.64 [0.58, 0.69]", sep = ""), fontface = "italic") + # Cold
   annotate("text", 2.1, -1.65, size = 2.5, color = pal[1],
-           label = paste("y=5.56-0.75×age; Z=0.76 [0.63, 0.88]", sep = ""), fontface = "italic") + # Warm
+           label = paste("y=5.56-0.76×age; Z=0.76 [0.63, 0.88]", sep = ""), fontface = "italic") + # Warm
   theme(text = element_text(size = 12), 
         legend.position = c(0.9, 0.9),
         legend.spacing.y = unit(0, 'cm'),
         legend.key.size = unit(0, "cm"),
         legend.title = element_text(size = 10),
         legend.text = element_text(size = 8))
+
+pcc
 
 # ggsave("figures/catch_curve.png", width = 6.5, height = 6.5, dpi = 600)
 
@@ -255,7 +293,7 @@ post_slope <- m1 %>%
   stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
   # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
   #        color = FALSE) +
-  guides(fill = FALSE, color = FALSE) +
+  guides(fill = "none", color = "none") +
   scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
   scale_color_manual(values = rev(pal)) +
   labs(x = expression(italic(Z)), fill = "") +
@@ -279,10 +317,10 @@ prop_diff <- summarise(diff, Proportion_of_the_difference_below_0 = sum(diff < 0
 post_diff <- diff %>%
   ggplot(aes(x = diff, fill = stat(x > 0))) +
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
-  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = "none") + 
   scale_fill_manual(values = c("grey10", "grey70")) +
   annotate("text", 0.14, 0.95, size = 3.5, label = paste("prop. diff<0=", round(prop_diff, 3), sep = "")) +
-  labs(x = expression(~italic(Z[warm])~-~italic(Z[cold]))) +
+  labs(x = expression(~italic(Z[heat])~-~italic(Z[ref]))) +
   theme(legend.position = c(0.2, 0.7),
         legend.text = element_text(size = 10),
         legend.title = element_text(size = 10),
