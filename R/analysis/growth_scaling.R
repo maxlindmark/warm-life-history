@@ -438,6 +438,9 @@ pal <- brewer.pal(n = 6, name = "Paired")[c(2, 6)]
 
 as.data.frame(fixef(m1)) # Extract "fixed" effects from m1 for plotting the equation 
 
+dfm_dummy <- dfm_dummy %>% 
+  mutate(area2_plot = ifelse(area2 == "Cold", "Ref", "Heat"))
+  
 pscatter <- dfm_dummy %>%
   ungroup() %>%
   data_grid(length = seq_range(length, n = 101),
@@ -445,14 +448,16 @@ pscatter <- dfm_dummy %>%
   mutate(areaC = ifelse(area2 == "Cold", 1, 0),
          areaW = ifelse(area2 == "Warm", 1, 0)) %>%
   add_predicted_draws(m1, re_formula = NA) %>%
-  ggplot(aes(x = length, y = growth, color = area2, fill = area2)) +
+  mutate(area2_plot = ifelse(area2 == "Cold", "Ref", "Heat")) %>%
+  ggplot(aes(x = length, y = growth, color = area2_plot, fill = area2_plot)) +
   stat_lineribbon(aes(y = .prediction), .width = c(.90), alpha = 1/4) +
   geom_point(data = dfm_dummy, alpha = 0.05, size = 0.8) +
   stat_lineribbon(aes(y = .prediction), .width = 0, alpha = 0.8) +
-  scale_fill_manual(values = pal) +
-  scale_color_manual(values = pal) +
-  guides(fill = FALSE,
-         color = guide_legend(override.aes = list(linetype = 0, size = 3, shape = 16, alpha = 0.5))) +
+  scale_fill_manual(values = rev(pal)) +
+  scale_color_manual(values = rev(pal)) +
+  guides(fill = "none",
+         color = guide_legend(override.aes = list(linetype = 0, size = 3, fill = NA,
+                                                  shape = 16, alpha = 0.5))) +
   labs(y = expression(paste("Growth [%", yr^-1, "]")),
        x = "Length [cm]", fill = "Area", colour = "Area") +
   annotate("text", 35, 42, label = paste("n=", nrow(dfm), sep = ""), size = 3.5) +
@@ -513,10 +518,10 @@ prop_diff_theta <- diff %>%
 # https://bookdown.org/content/3890/interactions.html
 post_diff_alpha <- ggplot(diff, aes(x = diff_alpha, fill = stat(x > 0))) +
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
-  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = "none") + 
   scale_fill_manual(values = c("grey10", "grey70")) +
   annotate("text", 130, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_alpha, 3), sep = "")) +
-  labs(x = expression(~italic(alpha[warm])~-~italic(alpha[cold]))) +
+  labs(x = expression(~italic(alpha[heat])~-~italic(alpha[ref]))) +
   theme(legend.position = c(0.2, 0.7),
         legend.key.size = unit(0.2, "cm"),
         legend.text = element_text(size = 8),
@@ -525,10 +530,10 @@ post_diff_alpha <- ggplot(diff, aes(x = diff_alpha, fill = stat(x > 0))) +
 
 post_diff_theta <- ggplot(diff, aes(x = diff_theta, fill = stat(x > 0))) +
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
-  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = FALSE) + 
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = "none") + 
   scale_fill_manual(values = c("grey10", "grey70")) +
   annotate("text", 0.07, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_theta, 3), sep = "")) +
-  labs(x = expression(~italic(theta[warm])~-~italic(theta[cold]))) +
+  labs(x = expression(~italic(theta[heat])~-~italic(theta[ref]))) +
   theme(legend.position = c(0.2, 0.7),
         legend.key.size = unit(0.2, "cm"),
         legend.text = element_text(size = 8),
