@@ -223,23 +223,6 @@ loo_compare(loo_m0, loo_m1)
 # m1  0.0       0.0   
 # m0 -1.2       2.1 
 
-# Poisson as per Nelson 2021 ICES and Millar 2014 CJFAS
-# Area-specific slopes that also vary by year (uncorrelated random effects)
-# Here I should use n_nets as offset and use catch_n
-# m_pois <- brm(
-#   catch_n ~ age + (1 + age|cohort), #+ offset(n_nets_year),
-#   family = poisson(link = "log"), data = d, iter = 4000, cores = 3, chains = 3,
-#   seed = 9,
-#   save_pars = save_pars(all = TRUE),
-#   #prior = prior0,
-#   control = list(adapt_delta = 0.99)
-# )
-# # 
-# summary(m_pois)
-# plot(m_pois)
-# conditional_effects(m_pois)
-#loo_m1 <- loo(m1, moment_match = TRUE)
-
 
 # D. PRODUCE FIGURES ===============================================================
 ##### Plot Predictions =============================================================
