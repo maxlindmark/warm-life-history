@@ -48,6 +48,6 @@ meetings/
 /data/raw/
 
 # test scripts and old scripts
-/R/analysis/size_spectra_sensitivity.R
-/R/analysis/size_spectra.R
+R/analysis/size_spectra_sensitivity.R
+R/analysis/size_spectra.R
 
