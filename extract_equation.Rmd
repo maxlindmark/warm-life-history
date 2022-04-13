@@ -10,18 +10,13 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r message=FALSE, warning=FALSE}
-library(tidyverse); theme_set(theme_classic(base_size = 12))
 library(lme4)
 library(equatiomatic)
 library(texPreview)
 
 df <- read.csv("data/size_at_age_BT_FM_1970-2004.csv", sep = ";")
-```
 
-### No random effects
-```{r message=FALSE, warning=FALSE, results="hide"}
 m1 <- lm(length ~ -1 + area + catch_year, data = df)
-#tex_preview(extract_eq(m1))
 extract_eq(m1)
 ```
 $$
