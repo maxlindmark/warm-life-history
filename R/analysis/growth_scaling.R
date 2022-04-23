@@ -435,6 +435,7 @@ loo_compare(loo_m1, loo_m2)
 # E. PRODUCE FIGURES ===============================================================
 ##### Plot predictions =============================================================
 pal <- brewer.pal(n = 6, name = "Paired")[c(2, 6)]
+# m1 <- readRDS("output/growth_scaling/m1.rds")
 
 as.data.frame(fixef(m1)) # Extract "fixed" effects from m1 for plotting the equation 
 
@@ -471,6 +472,96 @@ pscatter <- dfm_dummy %>%
         legend.key.size = unit(0, "cm"),
         legend.title = element_text(size = 10),
         legend.text = element_text(size = 10))
+
+# Plot ratio of warm to cold growth
+fm_preds_g <- dfm_dummy %>%
+  data_grid(length = seq_range(length, n = 101),
+            area2 = c("Cold")) %>%
+  mutate(areaW = 0,
+         areaC = 1) %>%
+  add_epred_draws(m1, re_formula = NA) %>%
+  ungroup() %>% 
+  rename(fm_pred = .epred) %>% 
+  dplyr::select(-area2, -areaW, -areaC)
+
+fm_preds_g <- dfm_dummy %>% 
+  data_grid(length = seq_range(length, n = 101),
+            area = c("FM")) %>%
+  mutate(areaC = ifelse(area == "FM", 1, 0),
+         areaW = ifelse(area == "BT", 1, 0)) %>% 
+  add_predicted_draws(m1, re_formula = NA) %>% 
+  ungroup() %>% 
+  rename(FM_pred = .prediction) %>% 
+  dplyr::select(-area, -areaC, -areaW)
+
+bt_preds_g <- dfm_dummy %>% 
+  data_grid(length = seq_range(length, n = 101),
+            area = c("BT")) %>%
+  mutate(areaC = ifelse(area == "FM", 1, 0),
+         areaW = ifelse(area == "BT", 1, 0)) %>% 
+  add_predicted_draws(m1, re_formula = NA) %>% 
+  ungroup() %>% 
+  rename(BT_pred = .prediction) %>% 
+  dplyr::select(-area, -areaC, -areaW)
+
+bt_preds_g <- dfm_dummy %>%
+  data_grid(length = seq_range(length, n = 101),
+            area2 = c("Warm")) %>%
+  mutate(areaW = 1,
+         areaC = 0) %>%
+  add_epred_draws(m1, re_formula = NA) %>%
+  ungroup() %>% 
+  rename(bt_pred = .epred) %>% 
+  dplyr::select(-area2, -areaW, -areaC)
+
+percent_df_g <- left_join(fm_preds_g, bt_preds_g) %>% 
+  mutate(perc_inc = (bt_pred/fm_pred))
+
+percent_df_g %>%
+  ggplot(aes(length, perc_inc)) +
+  geom_point() +
+  NULL
+   
+# percent_df_g %>% 
+#   ggplot(aes(length, BT_pred)) +
+#   geom_point() +
+#   NULL
+# 
+# percent_df_g %>% 
+#   ggplot(aes(length, FM_pred)) +
+#   geom_point() +
+#   NULL
+
+percent_df_g %>% 
+  group_by(length) %>% 
+  summarise(median_ratio = quantile(perc_inc, probs = 0.5),
+            lwr = quantile(perc_inc, probs = 0.025),
+            upr = quantile(perc_inc, probs = 0.975)) %>% 
+  ggplot(aes(length, median_ratio)) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr, y = median_ratio), fill = "gray80") + 
+  geom_line(size = 1.2) +
+  geom_hline(yintercept = 1, linetype = 2, color = "gray50") + 
+  theme(text = element_text(size = 12), # 12 for word doc
+        legend.position = c(0.1, 0.9), 
+        legend.spacing.y = unit(0, 'cm'),
+        legend.key.size = unit(0, "cm"),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 10)) +
+  NULL
+
+### Hmmm....
+
+summary(m1)
+df_test <- data.frame(length = seq(1, 30, 1))
+
+df_test$bt_growth <- 509.69*df_test$length^-1.13
+df_test$fm_growth <- 433.45*df_test$length^-1.18
+
+df_test$ratio <- df_test$bt_growth/df_test$fm_growth
+
+ggplot(df_test, aes(length, ratio)) +
+  geom_point() +
+  geom_hline(yintercept = 1)
 
 # Plot posteriors of parameters
 # http://mjskay.github.io/tidybayes/articles/tidy-brms.html

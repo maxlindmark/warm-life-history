@@ -473,6 +473,7 @@ loo_compare(loo_m1, loo_m2, loo_m3, loo_m4, loo_m5, loo_m6, loo_m7, loo_m8)
 
 # E. PRODUCE FIGURES ===============================================================
 # https://mjskay.github.io/tidybayes/articles/tidy-brms.html
+# m1 <- readRDS("output/vbge/m1.rds")
 
 pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 
@@ -480,6 +481,96 @@ pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 # summary(m1)
 # Population-Level Effects: 
 #   Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+
+# Plot % difference by age class
+fm_preds <- dfm %>%
+  data_grid(age = seq_range(age, by = 1),
+            area = c("FM")) %>%
+  mutate(areaC = ifelse(area == "FM", 1, 0),
+         areaW = ifelse(area == "BT", 1, 0)) %>%
+  add_epred_draws(m1, re_formula = NA, seed = 5) %>%
+  ungroup() %>%
+  rename(FM_pred = .epred) %>%
+  dplyr::select(-area, -areaC, -areaW)
+
+bt_preds <- dfm %>%
+  data_grid(age = seq_range(age, by = 1),
+            area = c("BT")) %>%
+  mutate(areaC = ifelse(area == "FM", 1, 0),
+         areaW = ifelse(area == "BT", 1, 0)) %>%
+  add_epred_draws(m1, re_formula = NA, seed = 5) %>%
+  ungroup() %>%
+  rename(BT_pred = .epred) %>%
+  dplyr::select(-area, -areaC, -areaW)
+
+ratio_df <- left_join(fm_preds, bt_preds) %>% 
+  mutate(heated_ref_ratio = (BT_pred/FM_pred))
+
+size_ratio <- ggplot(percent_df, aes(factor(age), perc_inc)) +
+  geom_violin(fill = "grey50", color = NA) + 
+  geom_pointrange(stat = "summary",
+                  fun.min = function(z) { quantile(z,0.25) },
+                  fun.max = function(z) { quantile(z,0.75) },
+                  fun = median, color = "white") +
+  geom_hline(yintercept = 1, linetype = 2, color = "gray50") + 
+  coord_cartesian(ylim = c(0.85, 1.35)) +
+  labs(y = "Heated / Reference size-at-age", x = "Age [yrs]") +
+  theme(text = element_text(size = 12), # 12 for word doc
+        legend.position = c(0.1, 0.9), 
+        legend.spacing.y = unit(0, 'cm'),
+        legend.key.size = unit(0, "cm"),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 10)) +
+  NULL
+
+## Now do growth, to make it in one plot...
+# m1_growth <- readRDS("output/growth_scaling/m1.rds")
+# 
+# fm_preds_g <- dfm %>% 
+#   data_grid(length = seq(4.5, 45, by = 0.5),
+#             area = c("FM")) %>%
+#   mutate(areaC = ifelse(area == "FM", 1, 0),
+#          areaW = ifelse(area == "BT", 1, 0)) %>% 
+#   add_epred_draws(m1_growth, re_formula = NA, seed = 5) %>% 
+#   ungroup() %>% 
+#   rename(FM_pred = .epred) %>% 
+#   dplyr::select(-area, -areaC, -areaW)
+# 
+# bt_preds_g <- dfm %>% 
+#   data_grid(length = seq(4.5, 45, by = 0.5),
+#             area = c("BT")) %>%
+#   mutate(areaC = ifelse(area == "FM", 1, 0),
+#          areaW = ifelse(area == "BT", 1, 0)) %>% 
+#   add_epred_draws(m1_growth, re_formula = NA, seed = 5) %>% 
+#   ungroup() %>% 
+#   rename(BT_pred = .epred) %>% 
+#   dplyr::select(-area, -areaC, -areaW)
+# 
+# percent_df_g <- left_join(fm_preds_g, bt_preds_g) %>% 
+#   mutate(heat_ref_ratio = (BT_pred/FM_pred))
+# 
+# growth_ratio <- percent_df_g %>% 
+#   group_by(length) %>% 
+#   summarise(median_ratio = quantile(heat_ref_ratio, probs = 0.5),
+#             lwr = quantile(heat_ref_ratio, probs = 0.025),
+#             upr = quantile(heat_ref_ratio, probs = 0.975)) %>% 
+#   ggplot(aes(length, median_ratio)) +
+#   geom_ribbon(aes(ymin = lwr, ymax = upr, y = median_ratio), fill = "gray80") + 
+#   geom_line(size = 1.2) +
+#   geom_hline(yintercept = 1, linetype = 2, color = "gray50") + 
+#   theme(text = element_text(size = 12), # 12 for word doc
+#         legend.position = c(0.1, 0.9), 
+#         legend.spacing.y = unit(0, 'cm'),
+#         legend.key.size = unit(0, "cm"),
+#         legend.title = element_text(size = 10),
+#         legend.text = element_text(size = 10)) +
+#   NULL
+
+# size_ratio / growth_ratio + plot_annotation(tag_levels = "A")
+# ggsave("figures/size_growth_ratios.png", width = 6.5, height = 6.5, dpi = 600)
+
+size_ratio
+ggsave("figures/size_growth_ratios.png", width = 6.5, height = 6.5, dpi = 600)
 
 # Plot main predictions
 pvbge <- dfm %>% 
