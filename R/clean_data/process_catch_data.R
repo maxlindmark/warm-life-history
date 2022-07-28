@@ -517,9 +517,16 @@ catch_full <- catch_full %>%
 # Insert netID
 sort(unique(catch_full$Station))
 
-catch_full$netID <- paste(catch_full$Area, catch_full$year, catch_full$Station, sep = ".")
 
-catch_full
+t <- catch_full %>% 
+  dplyr::select(Area, year, week, day, Sektion, Station)
+
+unique(is.na(t))
+
+catch_full$netID <- paste(catch_full$Area, catch_full$year, catch_full$Station, sep = ".")
+catch_full$netID2 <- paste(catch_full$Area, catch_full$year, catch_full$week, catch_full$day, catch_full$Sektion, catch_full$Station, sep = ".")
+
+length(unique(catch_full$netID))
 
 # Save data frame, 1 row 1 fish
 write.csv(catch_full, "data/catch_BT_FM_1987-2003.csv", row.names = FALSE)

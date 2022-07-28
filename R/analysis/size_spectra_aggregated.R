@@ -50,13 +50,13 @@ df <- read.csv("data/catch_BT_FM_1987-2003.csv")
 df %>%
   group_by(netID) %>%
   mutate(n = n()) %>%
-  ggplot(., aes(netID, n)) +
+  ggplot(., aes(netID2, n)) +
   geom_histogram(stat ="identity")
 
-df <- df %>% group_by(Area, year) %>% mutate(n_nets_year = length(unique(netID))) %>% ungroup()
+df <- df %>% group_by(Area, year) %>% mutate(n_nets_year = length(unique(netID2))) %>% ungroup()
 
 # Test
-df %>% filter(year == 1995 & Area == "BT") %>% distinct(netID)
+df %>% filter(year == 1995 & Area == "BT") %>% distinct(netID2)
 
 # Now we need to find representative catch sizes
 # Plot n per length group (cm)
@@ -411,7 +411,7 @@ pmle <- ggplot(data_year2) +
   scale_fill_manual(values = rev(pal)) + 
   scale_x_log10() +
   scale_y_log10() +
-  guides(fill = FALSE) + 
+  guides(fill = "none") + 
   coord_cartesian(ylim = c(0.1, 1000)) +
   labs(x = "Body mass, x [g]", y = "Number of values ≥ x") +
   theme(legend.position = c(0.8, 0.9)) +
@@ -447,12 +447,12 @@ phist <-
   theme_light() + 
   coord_cartesian(expand = 0) +
   labs(x = "Length group [cm]", y = "Proportion") +
-  guides(fill = FALSE) +
+  guides(fill = "none") +
   theme(text = element_text(size = 12))
 
 # Combine plots
 pmle / (est_plot | phist) + plot_annotation(tag_levels = "A") #+ plot_layout(widths = c(5, 1, 1))
 
-ggsave("figures/size_spec_v2.png", width = 6.5, height = 6.5, dpi = 600)
+ggsave("figures/size_spec.png", width = 6.5, height = 6.5, dpi = 600)
 
 

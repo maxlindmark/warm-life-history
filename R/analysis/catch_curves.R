@@ -40,6 +40,15 @@ df <- read.csv("data/aged_catch_BT_FM_1987-2003.csv")
 
 head(df)
 
+# 1996 is a special year because stations changed. But since we don't do anything with station 
+# we simply ignore that
+# df %>%
+#   group_by(year, Area, Station) %>% 
+#   summarise(n = n()) %>% 
+#   ggplot(., aes(year, n, fill = factor(Station))) +
+#   geom_bar(stat = "identity") +
+#   facet_wrap(~Area)
+
 # df %>%
 #   filter(Area == "BT") %>%
 #   group_by(year, netID) %>%
@@ -58,15 +67,16 @@ head(df)
 
 # How many nets in total per area and year? (For scaling with effort later)
 df <- df %>% group_by(Area, year) %>%
-  mutate(n_nets_year = length(unique(netID))) %>%
+  mutate(n_nets_year_test = length(unique(netID))) %>%
+  mutate(n_nets_year = length(unique(netID2))) %>%
   ungroup() %>%
   as.data.frame()
 
-length(unique(df$netID))
+length(unique(filter(df, Area == "BT")$netID))
+length(unique(filter(df, Area == "FM")$netID))
 
-# Test
-df %>% filter(year == 1995 & Area == "BT")
-df %>% filter(year == 1995 & Area == "BT") %>% distinct(netID)
+length(unique(filter(df, Area == "BT")$netID2))
+length(unique(filter(df, Area == "FM")$netID2))
 
 # We want the data as follows:
 # Year, LngtClass, Age, Number
@@ -82,7 +92,7 @@ df2 <- df %>%
 # Now we need to get the effort back in there
 df_effort <- df %>%
   mutate(effort_id = paste(year, Area, sep = ".")) %>% 
-  select(effort_id, n_nets_year) %>% 
+  select(effort_id, n_nets_year_test, n_nets_year) %>% 
   distinct(effort_id, .keep_all = TRUE) %>% 
   as.data.frame()
 
@@ -95,19 +105,65 @@ df %>% filter(year == 1987 & Area == "FM") %>% distinct(n_nets_year, .keep_all =
 df2 %>% filter(effort_id == "1987.FM")
 df3 %>% filter(effort_id == "1987.FM")
 
-# Go from total catch per year to catch by size-class / number of nets that year 
+# Go from total catch to CPUE
 df4 <- df3 %>% 
   ungroup() %>% 
   rename("area" = "Area") %>% 
-  mutate(cpue_numbers = catch_n/n_nets_year) # Get numbers CPUE, divide by the previously create n_nets, which is # of unique net ID's in each area and year
+  mutate(cpue_numbers_test = catch_n/n_nets_year_test,
+         cpue_numbers = catch_n/n_nets_year) # Get numbers CPUE, divide by the previously create n_nets, which is # of unique net ID's in each area and year
    
+head(df3, 30)
 head(df4)
+
+p1 <- df4 %>% 
+  group_by(area, year) %>% 
+  summarise(sum_cpue = sum(cpue_numbers)) %>% 
+  ggplot(aes(year, sum_cpue, color = area)) +
+  geom_point() + 
+  stat_smooth() + 
+  ggtitle("long ID")
+
+p2 <- df4 %>% 
+  group_by(area, year) %>% 
+  summarise(sum_cpue = sum(cpue_numbers_test)) %>% 
+  ggplot(aes(year, sum_cpue, color = area)) +
+  geom_point() + 
+  stat_smooth() +
+  ggtitle("short ID")
+
+p1/p2
       
+# Calculate average cpue by year and area
+df4
+
+p1 <- df4 %>%
+  group_by(year, area, age) %>% 
+  summarise(mean_cpue = mean(cpue_numbers)) %>% 
+  ggplot(aes(year, mean_cpue, fill = factor(age))) +
+  geom_area() + 
+  facet_wrap(~area) + 
+  scale_fill_brewer(palette = "Set1") + 
+  coord_cartesian(expand = 0) + 
+  ggtitle("New ID")
+
+p2 <- df4 %>%
+  group_by(year, area, age) %>% 
+  summarise(mean_cpue = mean(cpue_numbers_test)) %>% 
+  ggplot(aes(year, mean_cpue, fill = factor(age))) +
+  geom_area() + 
+  facet_wrap(~area) + 
+  scale_fill_brewer(palette = "Set1") + 
+  coord_cartesian(expand = 0) +
+  ggtitle("Old ID")
+
+p1/p2
+
 # Test I get 1 unique row per age, year and area
 df4 %>%
   group_by(year, area, age) %>%
   summarise(n = n()) %>% 
-  filter(!n == 1)
+  ungroup() %>% 
+  distinct(n)
 
 # Plot the log cpue as function of age to find the ages that correspond to the descending limb:
 ggplot(df4, aes(factor(age), log(cpue_numbers), color = factor(year))) + 
@@ -138,29 +194,20 @@ df4 %>%
   ggplot(., aes(year, cpue_numbers)) + geom_bar(stat = "identity") +
   facet_wrap(~ area)
 
-# Something strange in BT 1996, station is wrong, hence netID, total nets and thus CPUE
-# Removing it for now!
-d <- df4 %>%
-  filter(age > 2) %>% 
-  mutate(keep = ifelse(area == "BT" & year == 1996, "N", "Y")) %>% 
-  filter(keep == "Y")
-d %>% group_by(area, year) %>% summarise(year = (unique(year))) %>% data.frame()
-
 # Edit variables
-d <- d %>%
+d <- df4 %>%
   mutate(log_cpue = log(cpue_numbers),
          area2 = ifelse(area == "BT", "Warm", "Cold"),
          cohort = year - age) 
 
 # Remove cohorts before 1981
-d <- d %>% filter(cohort > 1980)
+d <- d %>% filter(cohort > 1980, age > 2)
 
 sort(unique(d$cohort))
 
 max(d$year)
 
 # Plot data
-
 d %>% filter(area == "BT") %>% 
   ggplot(aes(age, log_cpue)) + 
   geom_point() + 
@@ -172,6 +219,81 @@ d %>% filter(area == "FM") %>%
   geom_point() + 
   stat_smooth(method = "lm", se = FALSE) + 
   facet_wrap(~ cohort)
+
+d %>% 
+  ggplot(aes(age, cpue_numbers)) + 
+  geom_point() + 
+  stat_smooth(method = "lm", se = FALSE) + 
+  facet_wrap(~ area)
+
+
+
+# Make age proportion data frame (not by year)
+tot_cpue_area <- d %>%
+  filter(age > 2) %>% 
+  mutate(Area2 = ifelse(area == "BT", "Warm", "Cold")) %>% 
+  group_by(Area2) %>% 
+  summarise(sum_cpue = sum(cpue_numbers))
+
+d_prop_age <- d %>%
+  filter(age > 2) %>% 
+  mutate(Area2 = ifelse(area == "BT", "Warm", "Cold")) %>% 
+  group_by(Area2) %>% 
+  mutate(sum_cpue = sum(cpue_numbers)) %>% 
+  ungroup() %>% 
+  group_by(Area2, age) %>% 
+  summarise(sum_cpue_age = sum(cpue_numbers)) %>% 
+  ungroup() 
+
+d_prop_age %>% as.data.frame()
+
+d_prop_age <- left_join(d_prop_age, tot_cpue_area) %>% 
+  mutate(prop = sum_cpue_age / sum_cpue)
+
+p <- d_prop_age %>% 
+  ggplot(aes(factor(age), prop, color = Area2)) +
+  geom_point(stat = "identity") +
+  scale_color_manual(values = rev(pal)) +
+  theme_light() + 
+  NULL
+
+
+# Plot proportion by age
+pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
+
+pp <- df %>% 
+  filter(age > 2) %>% 
+  mutate(Area2 = ifelse(Area == "BT", "Warm", "Cold")) %>% 
+  group_by(Area2, age) %>% 
+  summarise(n = n()) %>%
+  mutate(freq = n / sum(n)) %>% 
+  ggplot(aes(x = factor(age), y = freq, color = Area2, group = interaction(age, Area2))) +
+  geom_point() +
+  scale_color_manual(values = rev(pal)) +
+  theme_light() + 
+  labs(x = "Age", y = "Proportion") +
+  guides(fill = "none") +
+  theme(text = element_text(size = 12))
+
+p / pp
+
+df %>% 
+  filter(age > 2) %>% 
+  mutate(Area2 = ifelse(Area == "BT", "Warm", "Cold")) %>% 
+  group_by(Area2, year, age) %>% 
+  summarise(n = n()) %>%
+  mutate(freq = n / sum(n)) %>% 
+  ggplot(aes(x = factor(age), y = freq, color = Area2, group = interaction(age, Area2))) +
+  geom_point(position = position_dodge(width = 0.8)) +
+  geom_boxplot(position = position_dodge(width = 0.8), fill = NA) +
+  scale_color_manual(values = rev(pal)) +
+  theme_light() + 
+  labs(x = "Age", y = "Proportion") +
+  guides(fill = "none") +
+  theme(text = element_text(size = 12))
+
+
+ggsave("figures/supp/age_prop_diff.png", width = 3.5, height = 6.5, dpi = 600)
 
 
 # C. FIT MODELS ====================================================================
@@ -219,9 +341,8 @@ plot(loo_m1, diagnostic = c("k", "n_eff"), label_points = TRUE)
 
 loo_compare(loo_m0, loo_m1)
 # elpd_diff se_diff
-# elpd_diff se_diff
 # m1  0.0       0.0   
-# m0 -1.2       2.1 
+# m0 -0.6       2.4 
 
 
 # D. PRODUCE FIGURES ===============================================================
@@ -248,11 +369,11 @@ pcc <- d %>%
   labs(color = "Area", fill = "Area", x = "Age [yrs]", y = "Log(CPUE)") +
   guides(color = guide_legend(override.aes = list(linetype = 0, size = 2, shape = 16, alpha = 0.5,
                                                   color = pal, fill = NA))) +
-  annotate("text", 2.1, -0.65, label = paste("n=", nrow(d), sep = ""), size = 2.5) +
-  annotate("text", 2.1, -1.1, size = 2.5, color = pal[2],
-           label = paste("y=6.55-0.64×age; Z=0.64 [0.58, 0.69]", sep = ""), fontface = "italic") + # Cold
-  annotate("text", 2.1, -1.65, size = 2.5, color = pal[1],
-           label = paste("y=5.56-0.76×age; Z=0.76 [0.63, 0.88]", sep = ""), fontface = "italic") + # Warm
+  annotate("text", 2.1, -2.65, label = paste("n=", nrow(d), sep = ""), size = 2.5) +
+  annotate("text", 2.1, -3.1, size = 2.5, color = pal[2],
+           label = paste("y=4.66-0.63×age; Z=0.63 [0.57, 0.68]", sep = ""), fontface = "italic") + # Cold
+  annotate("text", 2.1, -3.65, size = 2.5, color = pal[1],
+           label = paste("y=3.75-0.75×age; Z=0.75 [0.67, 0.82]", sep = ""), fontface = "italic") + # Warm
   theme(text = element_text(size = 12), 
         legend.position = c(0.9, 0.9),
         legend.spacing.y = unit(0, 'cm'),
@@ -275,7 +396,7 @@ post_slope <- m1 %>%
   ggplot(aes(x = .value, fill = .variable, color = .variable)) +
   stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
   # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
-  #        color = FALSE) +
+  #        color = "none") +
   guides(fill = "none", color = "none") +
   scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
   scale_color_manual(values = rev(pal)) +
@@ -292,18 +413,19 @@ diff <- m1 %>%
   mutate(diff = b_age_warm2 - b_age_cold2)
 
 prop_diff <- summarise(diff, Proportion_of_the_difference_below_0 = sum(diff < 0) / length(diff))
-# A tibble: 1 x 1
+# > prop_diff
+# # A tibble: 1 × 1
 # Proportion_of_the_difference_below_0
 # <dbl>
-#   1                              0.00117
+#   1                               0.0005
 
 post_diff <- diff %>%
   ggplot(aes(x = diff, fill = stat(x > 0))) +
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = "none") + 
   scale_fill_manual(values = c("grey10", "grey70")) +
-  annotate("text", 0.14, 0.95, size = 3.5, label = paste("prop. diff<0=", round(prop_diff, 3), sep = "")) +
-  labs(x = expression(~italic(Z[heat])~-~italic(Z[ref]))) +
+  annotate("text", 0.14, 0.95, size = 3.5, label = paste("prop. diff<0=", round(prop_diff, 4), sep = "")) +
+  labs(x = expression(~italic(Z)[heat]~-~italic(Z)[ref])) +
   theme(legend.position = c(0.2, 0.7),
         legend.text = element_text(size = 10),
         legend.title = element_text(size = 10),
@@ -340,7 +462,7 @@ full_df <- bind_rows(cold_slope_df, warm_slope_df)
 p_random <- full_df %>% 
   mutate(Z = slopes*-1) %>% # Convert from slopes to Z
   ggplot(., aes(y = factor(cohort), x = Z, fill = factor(Area), color = factor(Area))) +
-  geom_vline(xintercept = c(0.64, 0.75), color = rev(pal), linetype = 2, alpha = 0.4, size = 0.5) +
+  geom_vline(xintercept = c(0.63, 0.75), color = rev(pal), linetype = 2, alpha = 0.4, size = 0.5) +
   stat_slab(alpha = 0.13, position = position_nudge(y = 0.05), color = NA) + 
   stat_pointinterval(.width = c(.95), position = position_dodge(width = 0.25),
                      size = 0.1, alpha = 0.8) +

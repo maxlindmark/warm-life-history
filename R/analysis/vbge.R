@@ -19,6 +19,9 @@
 # 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+## *** These models take a long time to fit and the output is large. Model M1 is the 
+## one used in the paper
+
 # A. LOAD LIBRARIES ================================================================
 rm(list = ls())
 
@@ -101,6 +104,7 @@ dfm$age <- as.integer(dfm$age)
 
 min(dfm$age)
 min(dfm$birth_year) 
+
 
 # C. FIT MODELS ====================================================================
 # Here are some guides I followed
@@ -506,7 +510,7 @@ bt_preds <- dfm %>%
 ratio_df <- left_join(fm_preds, bt_preds) %>% 
   mutate(heated_ref_ratio = (BT_pred/FM_pred))
 
-size_ratio <- ggplot(percent_df, aes(factor(age), perc_inc)) +
+size_ratio <- ggplot(ratio_df, aes(factor(age), heated_ref_ratio)) +
   geom_violin(fill = "grey50", color = NA) + 
   geom_pointrange(stat = "summary",
                   fun.min = function(z) { quantile(z,0.25) },
@@ -523,54 +527,9 @@ size_ratio <- ggplot(percent_df, aes(factor(age), perc_inc)) +
         legend.text = element_text(size = 10)) +
   NULL
 
-## Now do growth, to make it in one plot...
-# m1_growth <- readRDS("output/growth_scaling/m1.rds")
-# 
-# fm_preds_g <- dfm %>% 
-#   data_grid(length = seq(4.5, 45, by = 0.5),
-#             area = c("FM")) %>%
-#   mutate(areaC = ifelse(area == "FM", 1, 0),
-#          areaW = ifelse(area == "BT", 1, 0)) %>% 
-#   add_epred_draws(m1_growth, re_formula = NA, seed = 5) %>% 
-#   ungroup() %>% 
-#   rename(FM_pred = .epred) %>% 
-#   dplyr::select(-area, -areaC, -areaW)
-# 
-# bt_preds_g <- dfm %>% 
-#   data_grid(length = seq(4.5, 45, by = 0.5),
-#             area = c("BT")) %>%
-#   mutate(areaC = ifelse(area == "FM", 1, 0),
-#          areaW = ifelse(area == "BT", 1, 0)) %>% 
-#   add_epred_draws(m1_growth, re_formula = NA, seed = 5) %>% 
-#   ungroup() %>% 
-#   rename(BT_pred = .epred) %>% 
-#   dplyr::select(-area, -areaC, -areaW)
-# 
-# percent_df_g <- left_join(fm_preds_g, bt_preds_g) %>% 
-#   mutate(heat_ref_ratio = (BT_pred/FM_pred))
-# 
-# growth_ratio <- percent_df_g %>% 
-#   group_by(length) %>% 
-#   summarise(median_ratio = quantile(heat_ref_ratio, probs = 0.5),
-#             lwr = quantile(heat_ref_ratio, probs = 0.025),
-#             upr = quantile(heat_ref_ratio, probs = 0.975)) %>% 
-#   ggplot(aes(length, median_ratio)) +
-#   geom_ribbon(aes(ymin = lwr, ymax = upr, y = median_ratio), fill = "gray80") + 
-#   geom_line(size = 1.2) +
-#   geom_hline(yintercept = 1, linetype = 2, color = "gray50") + 
-#   theme(text = element_text(size = 12), # 12 for word doc
-#         legend.position = c(0.1, 0.9), 
-#         legend.spacing.y = unit(0, 'cm'),
-#         legend.key.size = unit(0, "cm"),
-#         legend.title = element_text(size = 10),
-#         legend.text = element_text(size = 10)) +
-#   NULL
-
-# size_ratio / growth_ratio + plot_annotation(tag_levels = "A")
-# ggsave("figures/size_growth_ratios.png", width = 6.5, height = 6.5, dpi = 600)
 
 size_ratio
-ggsave("figures/size_growth_ratios.png", width = 6.5, height = 6.5, dpi = 600)
+ggsave("figures/supp/size_growth_ratios.png", width = 6.5, height = 6.5, dpi = 600)
 
 # Plot main predictions
 pvbge <- dfm %>% 
@@ -586,8 +545,8 @@ pvbge <- dfm %>%
   guides(fill = "none",
          color = guide_legend(override.aes = list(linetype = 0, fill = NA,
                                                   size = 3, shape = 16, alpha = 0.5))) +
-  scale_fill_manual(values = pal, labels = c("Heat", "Ref")) +
-  scale_color_manual(values = pal, labels = c("Heat", "Ref")) +
+  scale_fill_manual(values = pal, labels = c("Heated", "Reference")) +
+  scale_color_manual(values = pal, labels = c("Heated", "Reference")) +
   labs(y = "Length [cm]", x = "Age [yrs]", fill = "Area", colour = "Area") +
   annotate("text", 8, 10, label = paste("n=", nrow(dfm), sep = ""), size = 3) +
   theme(text = element_text(size = 12), # 12 for word doc
@@ -609,7 +568,7 @@ post_K <-
   ggplot(aes(x = .value, fill = .variable, color = .variable)) +
   stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
   # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
-  #        color = FALSE) +
+  #        color = "none") +
   guides(fill = "none", color = "none") + 
   scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
   scale_color_manual(values = rev(pal)) +
@@ -624,7 +583,7 @@ post_L_inf <-
   ggplot(aes(x = .value, fill = .variable, color = .variable)) +
   stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
   # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
-  #        color = FALSE) +
+  #        color = "none") +
   guides(fill = "none", color = "none") + 
   scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
   scale_color_manual(values = rev(pal)) +
@@ -649,7 +608,7 @@ post_diff_K <- ggplot(diff, aes(x = diff_K, fill = stat(x > 0))) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = "none") + 
   scale_fill_manual(values = c("grey10", "grey70")) +
   annotate("text", 0.11, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_K, 2), sep = "")) +
-  labs(x = expression(~italic(K[heat])~-~italic(K[ref]))) +
+  labs(x = expression(~italic(K)[heat]~-~italic(K)[ref])) +
   theme(legend.position = c(0.2, 0.7),
         legend.key.size = unit(0.2, "cm"),
         legend.text = element_text(size = 8),
@@ -661,7 +620,7 @@ post_diff_L_inf <- ggplot(diff, aes(x = diff_L_inf, fill = stat(x > 0))) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = "none") + 
   scale_fill_manual(values = c("grey10", "grey70")) +
   annotate("text", 22, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_L_inf, 2), sep = "")) +
-  labs(x = expression(paste(~italic(L[infinity][heat])~-~italic(L[infinity][ref])))) +
+  labs(x = expression(paste(~italic(L[infinity])[heat]~-~italic(L[infinity])[ref]))) +
   theme(legend.position = c(0.2, 0.7),
         legend.key.size = unit(0.2, "cm"),
         legend.text = element_text(size = 8),
@@ -762,32 +721,32 @@ ggsave("figures/supp/vbge_random_Linf.png", width = 6.5, height = 6.5, dpi = 600
 
 ##### Prior vs posterior ===========================================================
 # https://discourse.mc-stan.org/t/presenting-influence-of-different-priors/23393
-# Refit best model and sample from the prior
-prior <-
-  prior(normal(-0.5, 1), nlpar = "t0C") +
-  prior(normal(-0.5, 1), nlpar = "t0W") +
-  prior(normal(0.2, 0.1), nlpar = "KC") +
-  prior(normal(0.2, 0.1), nlpar = "KW") +
-  prior(normal(45, 20), nlpar = "LinfC") +
-  prior(normal(45, 20), nlpar = "LinfW")
-
-m1_w_prior <- 
-  brm(
-    bf(log(length_cm) ~ areaW*log(LinfW*(1-exp(-KW*(age-t0W)))) + areaC*log(LinfC*(1-exp(-KC*(age-t0C)))),
-       t0C ~ 1,
-       t0W ~ 1,
-       KC ~ 1 + (1|birth_year),    # parameter varying by birth_year
-       KW ~ 1 + (1|birth_year),    # parameter varying by birth_year
-       LinfC ~ 1 + (1|birth_year), # parameter varying by birth_year
-       LinfW ~ 1 + (1|birth_year), # parameter varying by birth_year
-       nl = TRUE),
-    data = dfm,
-    family = student(), prior = prior, sample_prior = "yes", seed = 9, 
-    iter = 4000, thin = 1, cores = 3, chains = 3, inits = inits_3_chain,
-    control = list(max_treedepth = 13, adapt_delta = 0.99))
+# Refit model and sample prior or load below (m1_w_prior)
+# prior <-
+#   prior(normal(-0.5, 1), nlpar = "t0C") +
+#   prior(normal(-0.5, 1), nlpar = "t0W") +
+#   prior(normal(0.2, 0.1), nlpar = "KC") +
+#   prior(normal(0.2, 0.1), nlpar = "KW") +
+#   prior(normal(45, 20), nlpar = "LinfC") +
+#   prior(normal(45, 20), nlpar = "LinfW")
+# 
+# m1_w_prior <-
+#   brm(
+#     bf(log(length_cm) ~ areaW*log(LinfW*(1-exp(-KW*(age-t0W)))) + areaC*log(LinfC*(1-exp(-KC*(age-t0C)))),
+#        t0C ~ 1,
+#        t0W ~ 1,
+#        KC ~ 1 + (1|birth_year),    # parameter varying by birth_year
+#        KW ~ 1 + (1|birth_year),    # parameter varying by birth_year
+#        LinfC ~ 1 + (1|birth_year), # parameter varying by birth_year
+#        LinfW ~ 1 + (1|birth_year), # parameter varying by birth_year
+#        nl = TRUE),
+#     data = dfm,
+#     family = student(), prior = prior, sample_prior = "yes", seed = 9,
+#     iter = 4000, thin = 1, cores = 3, chains = 3, inits = inits_3_chain,
+#     control = list(max_treedepth = 13, adapt_delta = 0.99))
 
 # saveRDS(m1_w_prior, "output/vbge/m1_w_prior.rds")
-# m1_w_prior <- readRDS("output/growth_scaling/m1_w_prior.rds")
+# m1_w_prior <- readRDS("output/vbge/m1_w_prior.rds")
 
 post <- m1_w_prior %>%
   posterior_samples() %>%
@@ -800,52 +759,60 @@ post_long <- post %>% pivot_longer(cols = c(1:12), names_to = "Parameter", value
 # parameter Linf
 prior_post_linf <- post_long %>%
   filter(Parameter %in% c("b_linf_w_intercept", "b_linf_c_intercept", "prior_b_linf_w", "prior_b_linf_c")) %>% 
-  ggplot(., aes(value, fill = Parameter, color = Parameter))+
-  geom_density(alpha = 0.4) +
+  ggplot(., aes(value, fill = Parameter, color = Parameter, alpha = Parameter))+
+  geom_density() +
   labs(x = expression(italic(L[infinity]))) +
   coord_cartesian(expand = 0) +
+  scale_alpha_manual(values = c(0.4, 0.4, 0.1, 0.1)) +
   scale_color_manual(values = c(NA, NA, "gray50", "gray50")) +
   scale_fill_manual(values = c(pal[2], pal[1], NA, NA),
-                    labels = c(expression(paste(~italic(L[infinity][cold]))), 
-                               expression(paste(~italic(L[infinity][warm]))),
-                               expression(paste(Prior~italic(L[infinity][warm]))),
-                               expression(paste(Prior~italic(L[infinity][cold]))))) + 
-  guides(color = FALSE,
-         fill = guide_legend(override.aes = list(color = c(NA, NA, "gray50", "gray50")))) +
+                    labels = c(expression(paste(~italic(L[infinity])[ref])), 
+                               expression(paste(~italic(L[infinity])[heat])),
+                               expression(paste(Prior~italic(L[infinity])[heat])),
+                               expression(paste(Prior~italic(L[infinity])[ref])))) + 
+  guides(color = "none", alpha = "none",
+         fill = guide_legend(override.aes = list(color = c(NA, NA, "gray50", "gray50"),
+                                                 alpha = c(0.4, 0.4, 0.1, 0.1)))) +
   theme(legend.position = c(0.2, 0.8),
         legend.text.align = 0)
 
 # parameter K
 prior_post_K <- post_long %>%
   filter(Parameter %in% c("b_kw_intercept", "b_kc_intercept", "prior_b_kw", "prior_b_kc")) %>% 
-  ggplot(., aes(value, fill = Parameter, color = Parameter))+
-  geom_density(alpha = 0.4) +
+  ggplot(., aes(value, fill = Parameter, color = Parameter, alpha = Parameter))+
+  geom_density() +
   labs(x = expression(italic(K))) +
   coord_cartesian(expand = 0) +
+  scale_alpha_manual(values = c(0.4, 0.4, 0.1, 0.1)) +
   scale_color_manual(values = c(NA, NA, "gray50", "gray50")) +
   scale_fill_manual(values = c(pal[2], pal[1], NA, NA),
-                    labels = c(expression(italic(K[cold])), expression(italic(K[warm])), 
-                               expression(paste(Prior~italic(K[warm]))),
-                               expression(paste(Prior~italic(K[cold]))))) + 
-  guides(color = FALSE,
-         fill = guide_legend(override.aes = list(color = c(NA, NA, "gray50", "gray50")))) +
+                    labels = c(expression(italic(K)[ref]),
+                               expression(italic(K)[heat]), 
+                               expression(paste(Prior~italic(K)[heat])),
+                               expression(paste(Prior~italic(K)[ref])))) + 
+  guides(color = "none", alpha = "none",
+         fill = guide_legend(override.aes = list(color = c(NA, NA, "gray50", "gray50"),
+                                                 alpha = c(0.4, 0.4, 0.1, 0.1)))) +
   theme(legend.position = c(0.2, 0.8),
         legend.text.align = 0)
 
 # parameter t0
 prior_post_t0 <- post_long %>%
   filter(Parameter %in% c("b_t0w_intercept", "b_t0c_intercept", "prior_b_t0w", "prior_b_t0c")) %>% 
-  ggplot(., aes(value, fill = Parameter, color = Parameter))+
-  geom_density(alpha = 0.4) +
+  ggplot(., aes(value, fill = Parameter, color = Parameter, alpha = Parameter))+
+  geom_density() +
   labs(x = expression(italic(t[0]))) +
   coord_cartesian(expand = 0) +
+  scale_alpha_manual(values = c(0.4, 0.4, 0.1, 0.1)) +
   scale_color_manual(values = c(NA, NA, "gray50", "gray50")) +
   scale_fill_manual(values = c(pal[2], pal[1], NA, NA),
-                    labels = c(expression(italic(t[0][cold])), expression(italic(t[0][warm])), 
-                               expression(paste(Prior~italic(t[0][cold]))),
-                               expression(paste(Prior~italic(t[0][warm]))))) + 
-  guides(color = FALSE,
-         fill = guide_legend(override.aes = list(color = c(NA, NA, "gray50", "gray50")))) +
+                    labels = c(expression(italic(t[0])[ref]),
+                               expression(italic(t[0])[heat]), 
+                               expression(paste(Prior~italic(t[0])[ref])),
+                               expression(paste(Prior~italic(t[0])[heat])))) + 
+  guides(color = "none", alpha = "none",
+         fill = guide_legend(override.aes = list(color = c(NA, NA, "gray50", "gray50"),
+                                                 alpha = c(0.4, 0.4, 0.1, 0.1)))) +
   theme(legend.position = c(0.2, 0.8),
         legend.text.align = 0)
 

@@ -16,6 +16,9 @@
 # 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+## *** These models take a long time to fit and the output is large. Model M1 is the 
+## one used in the paper
+
 # A. LOAD LIBRARIES ================================================================
 rm(list = ls())
 
@@ -266,7 +269,7 @@ dfm %>%
   geom_point(size = 1, alpha = 0.2) +
   geom_line(size = 1, alpha = 0.2) +
   scale_color_viridis(discrete = T, direction = -1) + 
-  guides(color = FALSE) +
+  guides(color = "none") +
   NULL
 
 # Check unique years
@@ -473,96 +476,6 @@ pscatter <- dfm_dummy %>%
         legend.title = element_text(size = 10),
         legend.text = element_text(size = 10))
 
-# Plot ratio of warm to cold growth
-fm_preds_g <- dfm_dummy %>%
-  data_grid(length = seq_range(length, n = 101),
-            area2 = c("Cold")) %>%
-  mutate(areaW = 0,
-         areaC = 1) %>%
-  add_epred_draws(m1, re_formula = NA) %>%
-  ungroup() %>% 
-  rename(fm_pred = .epred) %>% 
-  dplyr::select(-area2, -areaW, -areaC)
-
-fm_preds_g <- dfm_dummy %>% 
-  data_grid(length = seq_range(length, n = 101),
-            area = c("FM")) %>%
-  mutate(areaC = ifelse(area == "FM", 1, 0),
-         areaW = ifelse(area == "BT", 1, 0)) %>% 
-  add_predicted_draws(m1, re_formula = NA) %>% 
-  ungroup() %>% 
-  rename(FM_pred = .prediction) %>% 
-  dplyr::select(-area, -areaC, -areaW)
-
-bt_preds_g <- dfm_dummy %>% 
-  data_grid(length = seq_range(length, n = 101),
-            area = c("BT")) %>%
-  mutate(areaC = ifelse(area == "FM", 1, 0),
-         areaW = ifelse(area == "BT", 1, 0)) %>% 
-  add_predicted_draws(m1, re_formula = NA) %>% 
-  ungroup() %>% 
-  rename(BT_pred = .prediction) %>% 
-  dplyr::select(-area, -areaC, -areaW)
-
-bt_preds_g <- dfm_dummy %>%
-  data_grid(length = seq_range(length, n = 101),
-            area2 = c("Warm")) %>%
-  mutate(areaW = 1,
-         areaC = 0) %>%
-  add_epred_draws(m1, re_formula = NA) %>%
-  ungroup() %>% 
-  rename(bt_pred = .epred) %>% 
-  dplyr::select(-area2, -areaW, -areaC)
-
-percent_df_g <- left_join(fm_preds_g, bt_preds_g) %>% 
-  mutate(perc_inc = (bt_pred/fm_pred))
-
-percent_df_g %>%
-  ggplot(aes(length, perc_inc)) +
-  geom_point() +
-  NULL
-   
-# percent_df_g %>% 
-#   ggplot(aes(length, BT_pred)) +
-#   geom_point() +
-#   NULL
-# 
-# percent_df_g %>% 
-#   ggplot(aes(length, FM_pred)) +
-#   geom_point() +
-#   NULL
-
-percent_df_g %>% 
-  group_by(length) %>% 
-  summarise(median_ratio = quantile(perc_inc, probs = 0.5),
-            lwr = quantile(perc_inc, probs = 0.025),
-            upr = quantile(perc_inc, probs = 0.975)) %>% 
-  ggplot(aes(length, median_ratio)) +
-  geom_ribbon(aes(ymin = lwr, ymax = upr, y = median_ratio), fill = "gray80") + 
-  geom_line(size = 1.2) +
-  geom_hline(yintercept = 1, linetype = 2, color = "gray50") + 
-  theme(text = element_text(size = 12), # 12 for word doc
-        legend.position = c(0.1, 0.9), 
-        legend.spacing.y = unit(0, 'cm'),
-        legend.key.size = unit(0, "cm"),
-        legend.title = element_text(size = 10),
-        legend.text = element_text(size = 10)) +
-  NULL
-
-### Hmmm....
-
-summary(m1)
-df_test <- data.frame(length = seq(1, 30, 1))
-
-df_test$bt_growth <- 509.69*df_test$length^-1.13
-df_test$fm_growth <- 433.45*df_test$length^-1.18
-
-df_test$ratio <- df_test$bt_growth/df_test$fm_growth
-
-ggplot(df_test, aes(length, ratio)) +
-  geom_point() +
-  geom_hline(yintercept = 1)
-
 # Plot posteriors of parameters
 # http://mjskay.github.io/tidybayes/articles/tidy-brms.html
 
@@ -571,10 +484,10 @@ post_alpha <-
   gather_draws(b_alphaC_Intercept, b_alphaW_Intercept) %>%
   ggplot(aes(x = .value, fill = .variable, color = .variable)) +
   stat_halfeye(alpha = 0.5, size = 5, .width = c(0.9)) +
-  guides(color = FALSE, fill = FALSE) +
+  guides(color = "none", fill = "none") +
   scale_fill_manual(values = pal, labels = c("Cold", "Warm")) +
   scale_color_manual(values = pal) +
-  labs(x = expression(italic(alpha)), fill = "") +
+  labs(x = expression(italic("\u03B1")), fill = "") +
   theme(legend.position = c(0.9, 0.9),
         legend.key.size = unit(0.2, "cm"),
         legend.background = element_blank())
@@ -584,10 +497,10 @@ post_theta <-
   gather_draws(b_thetaC_Intercept, b_thetaW_Intercept) %>%
   ggplot(aes(x = .value, fill = .variable, color = .variable)) +
   stat_halfeye(alpha = 0.5, size = 5, .width = c(0.9)) +
-  guides(fill = FALSE, color = FALSE) + 
+  guides(fill = "none", color = "none") + 
   scale_fill_manual(values = pal, labels = c("Cold", "Warm")) +
   scale_color_manual(values = pal) +
-  labs(x = expression(italic(theta)), fill = "") +
+  labs(x = expression(italic("\u03B8")), fill = "") +
   theme(legend.position = c(0.9, 0.9),
         legend.key.size = unit(0.2, "cm"),
         legend.background = element_blank())
@@ -612,7 +525,7 @@ post_diff_alpha <- ggplot(diff, aes(x = diff_alpha, fill = stat(x > 0))) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = "none") + 
   scale_fill_manual(values = c("grey10", "grey70")) +
   annotate("text", 130, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_alpha, 3), sep = "")) +
-  labs(x = expression(~italic(alpha[heat])~-~italic(alpha[ref]))) +
+  labs(x = expression(~italic("\u03B1")[heat]~-~italic("\u03B1")[ref])) +
   theme(legend.position = c(0.2, 0.7),
         legend.key.size = unit(0.2, "cm"),
         legend.text = element_text(size = 8),
@@ -624,7 +537,7 @@ post_diff_theta <- ggplot(diff, aes(x = diff_theta, fill = stat(x > 0))) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = "none") + 
   scale_fill_manual(values = c("grey10", "grey70")) +
   annotate("text", 0.07, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_theta, 3), sep = "")) +
-  labs(x = expression(~italic(theta[heat])~-~italic(theta[ref]))) +
+  labs(x = expression(~italic("\u03B8")[heat]~-~italic("\u03B8")[ref])) +
   theme(legend.position = c(0.2, 0.7),
         legend.key.size = unit(0.2, "cm"),
         legend.text = element_text(size = 8),
@@ -641,25 +554,24 @@ ggsave("figures/growth_pred.png", width = 6.5, height = 6.5, dpi = 600)
 
 ##### Prior vs posterior ===========================================================
 # https://discourse.mc-stan.org/t/presenting-influence-of-different-priors/23393
-# Refit model and sample prior
-prior <-
-  prior(normal(500, 100), nlpar = "alphaW") +
-  prior(normal(500, 100), nlpar = "alphaC") +
-  prior(normal(-1.2, 0.3), nlpar = "thetaW") +
-  prior(normal(-1.2, 0.3), nlpar = "thetaC")
+# Refit model and sample prior or load below (m1_w_prior)
+# prior <-
+#   prior(normal(500, 100), nlpar = "alphaW") +
+#   prior(normal(500, 100), nlpar = "alphaC") +
+#   prior(normal(-1.2, 0.3), nlpar = "thetaW") +
+#   prior(normal(-1.2, 0.3), nlpar = "thetaC")
 
-ptm <- proc.time()
-m1_w_prior <- brm(bf(growth ~ areaW*alphaW*length^thetaW + areaC*alphaC*length^thetaC, 
-                     alphaW ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
-                     alphaC ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
-                     thetaW + thetaC ~ 1, nl = TRUE),
-                  family = student(), data = dfm_dummy, prior = prior,
-                  iter = 4000, cores = 3, chains = 3, seed = 9,
-                  save_pars = save_pars(all = TRUE), sample_prior = "yes",
-                  control = list(adapt_delta = 0.99))
+# m1_w_prior <- brm(bf(growth ~ areaW*alphaW*length^thetaW + areaC*alphaC*length^thetaC, 
+#                      alphaW ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
+#                      alphaC ~ 1 + (1|birth_year/ID), # parameter varying by ID within birth_year
+#                      thetaW + thetaC ~ 1, nl = TRUE),
+#                   family = student(), data = dfm_dummy, prior = prior,
+#                   iter = 4000, cores = 3, chains = 3, seed = 9,
+#                   save_pars = save_pars(all = TRUE), sample_prior = "yes",
+#                   control = list(adapt_delta = 0.99))
 
 # saveRDS(m1_w_prior, "output/growth_scaling/m1_w_prior.rds")
-# m1_w_prior <- readRDS("output/growth_scaling/m1_w_prior.rds")
+m1_w_prior <- readRDS("output/growth_scaling/m1_w_prior.rds")
 
 # This is just to check variables names in the samples...
 # test <- brm(bf(growth ~ areaW*alphaW*length^thetaW + areaC*alphaC*length^thetaC, 
@@ -683,50 +595,58 @@ post_long <- post %>% pivot_longer(cols = c(1:8), names_to = "Parameter", values
 # parameter "alpha"
 prior_post_alpha <- post_long %>%
   filter(Parameter %in% c("b_alpha_w_intercept", "b_alpha_c_intercept", "prior_b_alpha_w", "prior_b_alpha_c")) %>% 
-  ggplot(., aes(value, fill = Parameter, color = Parameter))+
-  geom_density(alpha = 0.4) +
-  labs(x = expression(alpha)) +
+  ggplot(., aes(value, fill = Parameter, color = Parameter, alpha = Parameter))+
+  geom_density() +
+  labs(x = expression(italic("\u03B1"))) +
   coord_cartesian(expand = 0) +
+  scale_alpha_manual(values = c(0.4, 0.4, 0.1, 0.1)) +
   scale_color_manual(values = c(NA, NA, "gray50", "gray50")) +
   scale_fill_manual(values = c(pal[1], pal[2], NA, NA),
-                    labels = c(expression(alpha[cold]), expression(alpha[warm]), 
-                               expression(paste(Prior~italic(alpha[cold]))), 
-                               expression(paste(Prior~italic(alpha[warm]))))) + 
-  guides(color = FALSE,
-         fill = guide_legend(override.aes = list(color = c(NA, NA, "gray50", "gray50")))) +
+                    labels = c(expression(italic("\u03B1")[ref]),
+                               expression(italic("\u03B1")[heat]), 
+                               expression(paste(Prior~italic("\u03B1")[ref])), 
+                               expression(paste(Prior~italic("\u03B1")[heat])))) + 
+  guides(color = "none",
+         alpha = "none",
+         fill = guide_legend(override.aes = list(color = c(NA, NA, "gray50", "gray50"),
+                                                 alpha = c(0.4, 0.4, 0.1, 0.1)))) +
   theme(legend.position = c(0.2, 0.8),
         legend.text.align = 0)
 
 # parameter "theta"
 prior_post_theta <- post_long %>%
   filter(Parameter %in% c("b_theta_w_intercept", "b_theta_c_intercept", "prior_b_theta_w", "prior_b_theta_c")) %>% 
-  ggplot(., aes(value, fill = Parameter, color = Parameter))+
-  geom_density(alpha = 0.4) +
-  labs(x = expression(theta)) +
+  ggplot(., aes(value, fill = Parameter, color = Parameter, alpha = Parameter))+
+  geom_density() +
+  labs(x = expression(italic("\u03B8"))) +
   coord_cartesian(expand = 0) +
+  scale_alpha_manual(values = c(0.4, 0.4, 0.1, 0.1)) +
   scale_color_manual(values = c(NA, NA, "gray50", "gray50")) +
   scale_fill_manual(values = c(pal[1], pal[2], NA, NA),
-                    labels = c(expression(theta[cold]), expression(theta[warm]), 
-                               expression(paste(Prior~italic(theta[cold]))), 
-                               expression(paste(Prior~italic(theta[warm]))))) + 
-  guides(color = FALSE,
-         fill = guide_legend(override.aes = list(color = c(NA, NA, "gray50", "gray50")))) +
+                    labels = c(expression(italic("\u03B8")[ref]),
+                               expression(italic("\u03B8")[heat]),
+                               expression(paste(Prior~italic("\u03B8")[ref])), 
+                               expression(paste(Prior~italic("\u03B8")[heat])))) + 
+  guides(color = "none", alpha = "none",
+         fill = guide_legend(override.aes = list(color = c(NA, NA, "gray50", "gray50"),
+                                                 alpha = c(0.4, 0.4, 0.1, 0.1)))) +
   theme(legend.position = c(0.2, 0.8),
         legend.text.align = 0)
 
 prior_post_theta_ins <- post_long %>%
   filter(Parameter %in% c("b_theta_w_intercept", "b_theta_c_intercept", "prior_b_theta_w", "prior_b_theta_c")) %>% 
-  ggplot(., aes(value, fill = Parameter, color = Parameter))+
-  geom_density(alpha = 0.4) +
-  labs(x = expression(theta)) +
+  ggplot(., aes(value, fill = Parameter, color = Parameter, alpha = Parameter))+
+  geom_density() +
+  labs(x = expression(paste(Prior~italic("\u03B8")))) +
   coord_cartesian(expand = 0, ylim = c(0, 1.8), xlim = c(-1.25, -1.05)) +
+  scale_alpha_manual(values = c(0.4, 0.4, 0.1, 0.1)) +
   scale_color_manual(values = c(NA, NA, "gray50", "gray50")) +
   scale_fill_manual(values = c(pal[1], pal[2], NA, NA)) + 
-  guides(color = FALSE, fill = FALSE)
+  guides(color = "none", fill = "none", alpha = "none")
 # prior_post_theta_ins
 
 top <- prior_post_alpha
-bottom <- prior_post_theta + inset_element(prior_post_theta_ins, left = 0.55, bottom = 0.5, right = 0.99, top = 0.99)
+bottom <- prior_post_theta + inset_element(prior_post_theta_ins, left = 0.55, bottom = 0.3, right = 0.99, top = 0.99)
 
 top / bottom + plot_annotation(tag_levels = list(c('A', 'B'), ''))
 
