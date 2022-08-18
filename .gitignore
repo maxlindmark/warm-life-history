@@ -51,3 +51,6 @@ meetings/
 R/analysis/size_spectra_sensitivity.R
 R/analysis/size_spectra.R
 
+# Old drafts
+R/drafts/old/
+
