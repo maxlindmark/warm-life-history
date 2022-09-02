@@ -48,6 +48,7 @@ meetings/
 /data/raw/
 
 # test scripts and old scripts
+R/test_vbge_dist2.R
 R/analysis/size_spectra_sensitivity.R
 R/analysis/size_spectra.R
 analysis/extract_equation_from_model_object.Rmd
