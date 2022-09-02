@@ -1,0 +1,103 @@
+---
+title: "Prepare data for von Bertalanffy models"
+author: "Max Lindmark"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+editor_options: 
+  chunk_output_type: console
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include = FALSE, cache=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 12,
+  fig.asp = 0.618,
+  fig.align ='center'
+)
+```
+
+### Load libraries
+```{r load libraries, message=FALSE}
+library(tidyverse); theme_set(theme_classic(base_size = 12))
+library(nlstools)
+library(viridis)
+library(tidylog)
+library(RColorBrewer)
+library(patchwork)
+
+# Print package versions
+sessionInfo() 
+```
+
+### Read and add final touches to data
+```{r}
+df <- read.csv("data/cleaned/size_at_age_BT_FM_1970-2004.csv", sep = ";")
+
+# Add an area-specific ID
+df$ID2 <- paste(df$ID, df$area, sep = ".")
+
+# Filter years to match the rest of the data sets and analyses
+df <- df %>% filter(birth_year > 1980 & birth_year < 1998,
+                    catch_year < 2004 & catch_age == age)
+
+# Plot data
+p1 <- ggplot(df, aes(age, length, color = area)) +
+  geom_point() +
+  facet_wrap(~ birth_year)
+p1
+
+# Now we need to reshape the data frame a little bit to add in the dummy variable
+# for area, and we'll use this dataframe for the models
+bt <- filter(df, area == "BT")
+fm <- filter(df, area == "FM")
+
+dfm <- data.frame(rbind(cbind(bt, areaW=1, areaC=0), cbind(fm, areaW=0, areaC=1)))
+
+dfm$age <- as.numeric(dfm$age)
+
+ggplot(filter(dfm, birth_year == 1988), aes(age, length, color = area)) +
+  geom_point()
+
+# They seem to come from a different gear
+filter(dfm, area == "FM" & birth_year == 1988 & length > 310)
+ggplot(filter(dfm, area == "FM"), aes(age, length, color = factor(gear))) +
+  geom_point(size = 0.4, alpha = 0.5) +
+  facet_wrap(~ birth_year)
+
+# Remove the odd gear
+sort(unique(dfm$gear))
+dfm <- dfm %>% filter(!gear == 32)
+sort(unique(dfm$gear))
+
+# Now it looks better
+ggplot(filter(dfm, area == "FM"), aes(age, length, color = factor(gear))) +
+  geom_point(size = 0.4, alpha = 0.5) +
+  facet_wrap(~ birth_year)
+
+# And in BT more or less only gear 9 is used
+ggplot(filter(dfm, area == "BT"), aes(age, length, color = factor(gear))) +
+  geom_point(size = 0.4, alpha = 0.5) +
+  facet_wrap(~ birth_year)
+
+# Lastly, fit the model using cm not mm
+dfm$length_cm <- dfm$length / 10
+dfm$log_length_cm <- log(dfm$length_cm)
+
+# Change age to integer
+dfm$age <- as.integer(dfm$age)
+
+min(dfm$age)
+min(dfm$birth_year) 
+```
+
+### Save data
+```{r save data}
+write.csv(dfm, "data/for_fitting/vbge_dat.csv")
+```
+

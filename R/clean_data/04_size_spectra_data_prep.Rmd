@@ -1,0 +1,179 @@
+---
+title: "Prepare data for size spectra"
+author: "Max Lindmark"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+editor_options: 
+  chunk_output_type: console
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include = FALSE, cache=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 12,
+  fig.asp = 0.618,
+  fig.align ='center'
+)
+```
+
+### Load libraries
+
+```{r}
+library(tidyverse); theme_set(theme_classic(base_size = 12))
+library(tidylog)
+library(RColorBrewer)
+library(patchwork)
+library(sizeSpectra)
+library(brms)
+library(nlstools)
+library(bayesplot)
+library(tidylog)
+library(tidybayes)
+library(RColorBrewer)
+library(modelr)
+library(viridis)
+library(ggridges)
+
+# Print package versions
+sessionInfo()
+```
+
+### Read and add final touches to data
+```{r}
+df <- read.csv("data/cleaned/catch_BT_FM_1987-2003.csv")
+
+# How many nets in total? (For scaling with effort later)
+df %>%
+  group_by(netID) %>%
+  mutate(n = n()) %>%
+  ggplot(., aes(netID2, n)) +
+  geom_histogram(stat ="identity")
+
+df <- df %>% group_by(Area, year) %>% mutate(n_nets_year = length(unique(netID2))) %>% ungroup()
+
+# Test
+df %>% filter(year == 1995 & Area == "BT") %>% distinct(netID2)
+
+# Now we need to find representative catch sizes
+# Plot n per length group (cm)
+p1 <- ggplot(df, aes(factor(length_group))) +   
+  geom_histogram(stat = "count") +
+  facet_wrap(~Area, scales = "free") + # Note the differences in # data
+  theme_classic() + 
+  coord_cartesian(expand = 0)
+
+# Filter out fish > 13 cm
+df <- df %>% filter(length_group > 13) %>% as.data.frame()
+
+# Plot again
+p2 <- ggplot(df, aes(factor(length_group))) +   
+  geom_histogram(stat = "count") +
+  facet_wrap(~Area, scales = "free") + # Note the differences in # data
+  theme_classic() + 
+  coord_cartesian(expand = 0)
+
+p1/p2
+
+# Before we process data any further, save it because we will use it in this format
+# for analysing mean size (i.e. we need 1 row = 1 ind)
+
+size_df <- df
+
+# Now we want to process the data a bit further... Following Edwards sizeSpectra package
+# we want the data as follows:
+# Year 	SpecCode 	LngtClass 	Number 	LWa 	LWb 	bodyMass 	Biomass
+# Hence, for each year, we need to calculate the CPUE
+# https://htmlpreview.github.io/?https://raw.githubusercontent.com/andrew-edwards/sizeSpectra/master/doc/MEPS_IBTS_MLEbins.html
+
+# Do NOT group by year here... this is the aggregated
+# Group by Area and length group, summarize and get n()
+df2 <- df %>%
+  group_by(Area, length_group) %>% 
+  summarise(catch_n = n()) %>% # Get catch as a column, this is now the number of rows a given length occurs each year and area
+  ungroup() %>% 
+  mutate(effort_id = paste(Area, sep = ".")) %>% 
+  as.data.frame()
+
+# Now we need to get the effort back in there
+df_effort <- df %>%
+  mutate(effort_id = paste(Area, sep = ".")) %>% 
+  select(effort_id, n_nets_year) %>% 
+  distinct(effort_id, .keep_all = TRUE) %>% 
+  as.data.frame()
+
+# Now do a left_join
+df3 <- left_join(df2, df_effort, by = "effort_id") %>% as.data.frame()
+
+# Now do some additional calculations (weights etc, to match data structure in sizeSpectra package)
+# LW parameters from FishBase (2020.09.24)
+a <- 0.01 
+b <- 3.08
+
+df4 <- df3 %>% 
+  ungroup() %>% 
+  rename("area" = "Area",
+         "min_length_group_cm" = "length_group") %>% # What we have now is the minimum length in each class
+  mutate(max_length_group_cm = min_length_group_cm + 2.4, # Get max length in bin (2.5 cm length-classes)
+         wmin = a*min_length_group_cm^b,     # Get min mass in bin
+         wmax = a*max_length_group_cm^b) %>% # Get max mass in bin
+  mutate(cpue_numbers = catch_n/n_nets_year, # Get numbers CPUE, divide by the previously create n_nets, which is # of unique net ID's in each area and year
+         cpue_biom = (catch_n*((wmin + wmax)/2))/n_nets_year) %>% # Get biomass CPUE, use mean of mass in size range
+  mutate(SpecCode = "Perch")
+
+# Test I get 1 unique row per size class and area
+df4 %>%
+  group_by(area, min_length_group_cm) %>%
+  summarise(n = n()) %>% 
+  filter(n == 1) %>% 
+  as.data.frame()
+
+# Plot the log biomass cpue as function of log weight
+ggplot(df4, aes(log(wmax), log(cpue_biom))) + 
+  stat_smooth(se = FALSE) +
+  geom_point() +
+  facet_wrap(~ area) +
+  scale_color_viridis(discrete = TRUE) + 
+  coord_cartesian(expand = 0) + 
+  theme(aspect.ratio = 1)
+
+# Plot the total number of catches by length-group in this processed data
+# Compare with p2, should be the same plot...
+ggplot(df4, aes(min_length_group_cm, catch_n)) + 
+  geom_bar(stat = "identity") + 
+  facet_wrap(~ area, scales = "free") +
+  theme_classic() + 
+  coord_cartesian(expand = 0)
+
+p2
+
+# Now that we have CPUE and not COUNT, we can see if the filter to maximum catch size is
+# appropriate
+p3 <- ggplot(df4, aes(factor(round(wmin, digits = 3)), cpue_biom)) + 
+  geom_bar(stat = "identity") + 
+  facet_wrap(~ area, scales = "free") +
+  theme_classic() + 
+  coord_cartesian(expand = 0)
+
+# Filter out fish > 13 cm
+df4 <- df4 %>% filter(wmin > 50) %>% as.data.frame()
+
+# Plot again
+p4 <- ggplot(df4, aes(factor(round(wmin, digits = 3)), cpue_biom)) + 
+  geom_bar(stat = "identity") + 
+  facet_wrap(~ area, scales = "free") +
+  theme_classic() + 
+  coord_cartesian(expand = 0)
+
+p3/p4
+```
+
+### Save data
+```{r save data}
+write.csv(df4, "data/for_fitting/size_spectrum_dat.csv")
+```

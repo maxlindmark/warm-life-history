@@ -1,0 +1,856 @@
+---
+title: "Fit von Bertalanffy models"
+author: "Max Lindmark"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+editor_options: 
+  chunk_output_type: console
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include = FALSE, cache=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 12,
+  fig.asp = 0.618,
+  fig.align ='center'
+)
+```
+
+## von Bertalanffy growth models
+Fit VBGE models that vary with respect to common or area-specific parameters by adding a dummy-variable (0, 1) and use WAIC to compare them. Because we use back-calculated data (few repetitions within the same individual), we fit models with catch-age-only. The models have sigma varying with age and cohort-varying K and L_inf.
+
+### Load libraries
+```{r load libraries, message=FALSE}
+library(tidyverse); theme_set(theme_classic(base_size = 12))
+library(brms)
+library(nlstools)
+library(viridis)
+library(bayesplot)
+library(tidylog)
+library(tidybayes)
+library(RColorBrewer)
+library(patchwork)
+library(modelr)
+
+# Print package versions for versions
+sessionInfo() 
+
+# For parallel processing
+options(mc.cores = parallel::detectCores()) 
+```
+
+### Read data
+```{r}
+d <- read.csv("data/for_fitting/vbge_dat.csv")
+```
+
+### Fit models
+Here are some guides I followed
+https://rstudio-pubs-static.s3.amazonaws.com/57692_215e844f73e949ada4854dc688677dc1.html
+vignette("brms_nonlinear", package = "brms"); https://cran.r-project.org/web/packages/brms/vignettes/brms_nonlinear.html; https://cran.r-project.org/web/packages/brms/vignettes/brms_distreg.html
+
+All models have year as a ID within year as random factors for K & L_inf & a model on sigma: https://cran.r-project.org/web/packages/brms/vignettes/brms_distreg.html
+
+Preliminary analysis result in bimodal posterior distributions, so therefore I 
+will put informative priors on the models.
+
+Below BT is the warm area, FM is the cold. After this code I use heated/reference instead
+
+```{r initial prior adventures}
+# First selected informative priors through a prior predictive check on all data combined
+# hist(rnorm(10000, mean = 45, sd = 10))    # L_inf
+# hist(rnorm(10000, mean = -0.3, sd = 0.2)) # t0 
+# hist(rnorm(10000, mean = 0.2, sd = 0.1))  # K
+
+# However, this did not work with the full model. I achieved convergence by setting 
+# much tighter priors.
+# prior(normal(-0.5, 0.1), nlpar = "t0FM") +
+# prior(normal(-0.5, 0.1), nlpar = "t0BT") +
+# prior(normal(0.17, 0.02), nlpar = "KFM") +
+# prior(normal(0.17, 0.02), nlpar = "KBT") +
+# prior(normal(40, 1), nlpar = "LinfFM") +
+# prior(normal(40, 1), nlpar = "LinfBT")
+
+# I then relaxed them step-wise. That resulted in the following priors: 
+# prior(normal(-0.5, 0.4), nlpar = "t0FM") +
+# prior(normal(-0.5, 0.4), nlpar = "t0BT") +
+# prior(normal(0.17, 0.05), nlpar = "KFM") +
+# prior(normal(0.17, 0.05), nlpar = "KBT") +
+# prior(normal(40, 5), nlpar = "LinfFM") +
+# prior(normal(40, 5), nlpar = "LinfBT")
+
+# However, they seemed to narrow.
+# Therefore I tried to constrain parameters by using uniform distributions. I landed 
+# on using it only for K, which was sufficient in order to be able to put broad normal
+# priors on L_inf and t_0
+# https://rdrr.io/cran/brms/man/set_prior.html
+```
+
+M0: Prior predictive check: Warm+Cold merged
+```{r M0: prior predictive}
+hist(rnorm(100000, mean = 45, sd = 20))
+hist(rnorm(100000, mean = 0.2, sd = 0.1)) 
+
+M0fmbt <- brm(
+  bf(log(length_cm) ~ log(Linf*(1-exp(-K*(age-t0)))),
+     Linf ~ 1, t0 ~ 1, K ~ 1, nl = TRUE),
+  data = d, family = gaussian(),
+  prior = c(prior(normal(45, 20), nlpar = "Linf"),
+            prior(normal(-0.5, 1), nlpar = "t0"),
+            prior(normal(0.2, 0.1), nlpar = "K")),
+            sample_prior = "only", 
+  iter = 4000, thin = 1, cores = 3, chains = 3, seed = 9)
+
+
+# From add_fitted_draws {tidybayes}	which I use for the general predictions
+# add_predicted_draws adds draws from posterior predictions to the data. It corresponds to ... or brms::predict.brmsfit() in brms.
+pp <- conditional_effects(M0fmbt, method = "posterior_predict")
+
+plot(pp, plot = FALSE)[[1]] +
+  labs(x = "Age [yrs]", y = "log(length [cm])") 
+
+ggsave("figures/supp/vbge_prior_pred_check.png", width = 6.5, height = 6.5, dpi = 600)
+```
+
+M1: All parameters specific by area
+```{r M1: All parameters specific by area}
+# These inits where found after initial exploration
+load("output/vbge_3_chain_inits.RData")
+inits_3_chain
+
+prior <-
+  prior(normal(-0.5, 1), nlpar = "t0C") +
+  prior(normal(-0.5, 1), nlpar = "t0W") +
+  prior(normal(0.2, 0.1), nlpar = "KC") +
+  prior(normal(0.2, 0.1), nlpar = "KW") +
+  prior(normal(45, 20), nlpar = "LinfC") +
+  prior(normal(45, 20), nlpar = "LinfW")
+  
+start_time <- Sys.time()
+m1 <- 
+  brm(
+    bf(log(length_cm) ~ areaW*log(LinfW*(1-exp(-KW*(age-t0W)))) + areaC*log(LinfC*(1-exp(-KC*(age-t0C)))),
+       t0C ~ 1,
+       t0W ~ 1,
+       KC ~ 1 + (1|birth_year),    # parameter varying by birth_year
+       KW ~ 1 + (1|birth_year),    # parameter varying by birth_year
+       LinfC ~ 1 + (1|birth_year), # parameter varying by birth_year
+       LinfW ~ 1 + (1|birth_year), # parameter varying by birth_year
+       nl = TRUE),
+    data = d,
+    family = student(), prior = prior, seed = 9, 
+    iter = 4000, thin = 1, cores = 3, chains = 3, inits = inits_3_chain,
+    control = list(max_treedepth = 13, adapt_delta = 0.99))
+end_time <- Sys.time()
+end_time - start_time
+# Time difference of 4.624257 hours
+
+summary(m1)
+plot(m1)
+
+# Save model object to not have to rerun it...
+# saveRDS(m1, "output/vbge/m1.rds")
+# m1 <- readRDS("output/vbge/m1.rds")
+
+# > prior_summary(m1)
+```
+
+M2: L_inf common parameter, t_0 & K specific
+```{r M2: L_inf common parameter, t_0 & K specific}
+prior2 <-
+  prior(normal(-0.5, 1), nlpar = "t0C") +
+  prior(normal(-0.5, 1), nlpar = "t0W") +
+  prior(normal(0.2, 0.1), nlpar = "KC") +
+  prior(normal(0.2, 0.1), nlpar = "KW") +
+  prior(normal(45, 20), nlpar = "Linf")
+
+start_time <- Sys.time()
+m2 <- 
+  brm(
+    bf(log(length_cm) ~ areaW*log(Linf*(1-exp(-KW*(age-t0W)))) + areaC*log(Linf*(1-exp(-KC*(age-t0C)))),
+       t0C ~ 1,
+       t0W ~ 1,
+       KC ~ 1 + (1|birth_year),   # parameter varying by birth_year
+       KW ~ 1 + (1|birth_year),   # parameter varying by birth_year
+       Linf ~ 1 + (1|birth_year), # parameter varying by birth_year
+       nl = TRUE),
+    data = d,
+    family = student(), prior = prior2, seed = 9, 
+    iter = 4000, thin = 1, cores = 3, chains = 3, inits = inits_3_chain,
+    control = list(max_treedepth = 13, adapt_delta = 0.99))
+end_time <- Sys.time()
+end_time - start_time
+# Time difference of 3.828257 hours
+
+summary(m2)
+plot(m2)
+
+# Save model object to not have to rerun it...
+# saveRDS(m2, "output/vbge/m2.rds")
+# m2 <- readRDS("output/vbge/m2.rds")
+```
+
+M3: K common parameter, t_0 & L_inf specific
+```{r M3: K common parameter, t_0 & L_inf specific}
+prior3 <-
+  prior(normal(-0.5, 1), nlpar = "t0C") +
+  prior(normal(-0.5, 1), nlpar = "t0W") +
+  prior(normal(0.2, 0.1), nlpar = "K") +
+  prior(normal(45, 20), nlpar = "LinfC") +
+  prior(normal(45, 20), nlpar = "LinfW")
+
+start_time <- Sys.time()
+m3 <- 
+  brm(
+    bf(log(length_cm) ~ areaW*log(LinfW*(1-exp(-K*(age-t0W)))) + areaC*log(LinfC*(1-exp(-K*(age-t0C)))),
+       t0C ~ 1,
+       t0W ~ 1,
+       K ~ 1 + (1|birth_year),      # parameter varying by birth_year
+       LinfC ~ 1 + (1|birth_year),  # parameter varying by birth_year
+       LinfW ~ 1 + (1|birth_year),  # parameter varying by birth_year
+       nl = TRUE),
+    data = d,
+    family = student(), prior = prior3, seed = 9, 
+    iter = 4000, thin = 1, cores = 3, chains = 3, inits = inits_3_chain,
+    control = list(max_treedepth = 13, adapt_delta = 0.99))
+end_time <- Sys.time()
+end_time - start_time 
+# Time difference of 3.402677 hours
+
+summary(m3)
+plot(m3)
+
+# Save model object to not have to rerun it...
+# saveRDS(m3, "output/vbge/m3.rds")
+# m3 <- readRDS("output/vbge/m3.rds")
+```
+
+M4: t_0 common parameter, K & L_inf specific
+```{r M4: t_0 common parameter, K & L_inf specific}
+prior4 <-
+  prior(normal(-0.5, 1), nlpar = "t0") +
+  prior(normal(0.2, 0.1), nlpar = "KC") +
+  prior(normal(0.2, 0.1), nlpar = "KW") +
+  prior(normal(45, 20), nlpar = "LinfC") +
+  prior(normal(45, 20), nlpar = "LinfW")
+
+start_time <- Sys.time()
+m4 <- 
+  brm(
+    bf(log(length_cm) ~ areaW*log(LinfW*(1-exp(-KW*(age-t0)))) + areaC*log(LinfC*(1-exp(-KC*(age-t0)))),
+       t0 ~ 1,
+       KC ~ 1 + (1|birth_year),    # parameter varying by birth_year
+       KW ~ 1 + (1|birth_year),    # parameter varying by birth_year
+       LinfC ~ 1 + (1|birth_year), # parameter varying by birth_year
+       LinfW ~ 1 + (1|birth_year), # parameter varying by birth_year
+       nl = TRUE),
+    data = d,
+    family = student(), prior = prior4, seed = 9, 
+    iter = 4000, thin = 1, cores = 3, chains = 3, inits = inits_3_chain,
+    control = list(max_treedepth = 13, adapt_delta = 0.99))
+end_time <- Sys.time()
+end_time - start_time
+# Time difference of 2.186266 hours
+
+summary(m4)
+plot(m4)
+
+# Save model object to not have to rerun it...
+# saveRDS(m4, "output/vbge/m4.rds")
+# m4 <- readRDS("output/vbge/m4.rds")
+```
+
+M5: L_inf & K common parameter, t_0 specific
+```{r M5: L_inf & K common parameter, t_0 specific}
+prior5 <-
+  prior(normal(-0.5, 1), nlpar = "t0C") +
+  prior(normal(-0.5, 1), nlpar = "t0W") +
+  prior(normal(0.2, 0.1), nlpar = "K") +
+  prior(normal(45, 20), nlpar = "Linf")
+
+start_time <- Sys.time()
+m5 <- 
+  brm(
+    bf(log(length_cm) ~ areaW*log(Linf*(1-exp(-K*(age-t0W)))) + areaC*log(Linf*(1-exp(-K*(age-t0C)))),
+       t0C ~ 1,
+       t0W ~ 1,
+       K ~ 1 + (1|birth_year),    # parameter varying by birth_year
+       Linf ~ 1 + (1|birth_year), # parameter varying by birth_year
+       nl = TRUE),
+    data = d,
+    family = student(), prior = prior5, seed = 9, 
+    iter = 4000, thin = 1, cores = 3, chains = 3, inits = inits_3_chain,
+    control = list(max_treedepth = 13, adapt_delta = 0.99))
+end_time <- Sys.time()
+end_time - start_time
+# Time difference of 4.4384 hours
+
+summary(m5)
+plot(m5)
+
+# Save model object to not have to rerun it...
+# saveRDS(m5, "output/vbge/m5.rds")
+# m5 <- readRDS("output/vbge/m5.rds")
+```
+
+M6: L_inf & t_0 common parameter, K specific
+```{r M6: L_inf & t_0 common parameter, K specific}
+prior6 <-
+  prior(normal(-0.5, 1), nlpar = "t0") +
+  prior(normal(0.2, 0.1), nlpar = "KC") +
+  prior(normal(0.2, 0.1), nlpar = "KW") +
+  prior(normal(45, 20), nlpar = "Linf")
+
+start_time <- Sys.time()
+m6 <- 
+  brm(
+    bf(log(length_cm) ~ areaW*log(Linf*(1-exp(-KW*(age-t0)))) + areaC*log(Linf*(1-exp(-KC*(age-t0)))),
+       t0 ~ 1,
+       KC ~ 1 + (1|birth_year),    # parameter varying by birth_year
+       KW ~ 1 + (1|birth_year),    # parameter varying by birth_year
+       Linf ~ 1 + (1|birth_year),  # parameter varying by birth_year
+       nl = TRUE),
+    data = d,
+    family = student(), prior = prior6, seed = 9, 
+    iter = 4000, thin = 1, cores = 3, chains = 3, inits = inits_3_chain,
+    control = list(max_treedepth = 13, adapt_delta = 0.99))
+end_time <- Sys.time()
+end_time - start_time
+# Time difference of 1.077574 hours
+
+summary(m6)
+plot(m6)
+
+# Save model object to not have to rerun it...
+# saveRDS(m6, "output/vbge/m6.rds")
+# m6 <- readRDS("output/vbge/m6.rds")
+```
+
+M7: K & t_0 common parameter, L_inf specific
+```{r M7: K & t_0 common parameter, L_inf specific}
+prior7 <-
+  prior(normal(-0.5, 1), nlpar = "t0") +
+  prior(normal(0.2, 0.1), nlpar = "K") +
+  prior(normal(45, 20), nlpar = "LinfC") +
+  prior(normal(45, 20), nlpar = "LinfW")
+
+start_time <- Sys.time()
+m7 <- 
+  brm(
+    bf(log(length_cm) ~ areaW*log(LinfW*(1-exp(-K*(age-t0)))) + areaC*log(LinfC*(1-exp(-K*(age-t0)))),
+       t0 ~ 1,
+       K ~ 1 + (1|birth_year),     # parameter varying by birth_year
+       LinfC ~ 1 + (1|birth_year), # parameter varying by birth_year
+       LinfW ~ 1 + (1|birth_year), # parameter varying by birth_year
+       nl = TRUE),
+    data = d,
+    family = student(), prior = prior7, seed = 9, 
+    iter = 4000, thin = 1, cores = 3, chains = 3, inits = inits_3_chain,
+    control = list(max_treedepth = 13, adapt_delta = 0.99))
+end_time <- Sys.time()
+end_time - start_time
+# Time difference of 58.70017 mins
+
+summary(m7)
+plot(m7)
+
+# Save model object to not have to rerun it...
+# saveRDS(m7, "output/vbge/m7.rds")
+# m7 <- readRDS("output/vbge/m7.rds")
+```
+
+M8: All parameters common
+```{r M8: All parameters common}
+prior8 <-
+  prior(normal(-0.5, 1), nlpar = "t0") +
+  prior(normal(0.2, 0.1), nlpar = "K") +
+  prior(normal(45, 20), nlpar = "Linf")
+
+start_time <- Sys.time()
+m8 <- 
+  brm(
+    bf(log(length_cm) ~ areaW*log(Linf*(1-exp(-K*(age-t0)))) + areaC*log(Linf*(1-exp(-K*(age-t0)))),
+       t0 ~ 1,
+       K ~ 1 + (1|birth_year),     # parameter varying by birth_year
+       Linf ~ 1 + (1|birth_year),  # parameter varying by birth_year
+       nl = TRUE),
+    data = d,
+    family = student(), prior = prior8, seed = 9, 
+    iter = 4000, thin = 1, cores = 3, chains = 3, inits = inits_3_chain,
+    control = list(max_treedepth = 13, adapt_delta = 0.99))
+end_time <- Sys.time()
+end_time - start_time
+# Warning messages:
+#   1: The largest R-hat is 1.68, indicating chains have not mixed.
+# Running the chains for more iterations may help. See
+# http://mc-stan.org/misc/warnings.html#r-hat 
+# 2: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
+# Running the chains for more iterations may help. See
+# http://mc-stan.org/misc/warnings.html#bulk-ess 
+# 3: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
+# Running the chains for more iterations may help. See
+# http://mc-stan.org/misc/warnings.html#tail-ess 
+summary(m8)
+plot(m8)
+
+# Save model object to not have to rerun it...
+# saveRDS(m8, "output/vbge/m8.rds")
+# m8 <- readRDS("output/vbge/m8.rds")
+```
+
+### Compare models
+```{r}
+loo_m1 <- loo(m1)
+loo_m2 <- loo(m2)
+loo_m3 <- loo(m3)
+loo_m4 <- loo(m4)
+loo_m5 <- loo(m5)
+loo_m6 <- loo(m6)
+loo_m7 <- loo(m7)
+loo_m8 <- loo(m8)
+
+# Compare models
+loo_compare(loo_m1, loo_m2, loo_m3, loo_m4, loo_m5, loo_m6, loo_m7, loo_m8)
+# elpd_diff se_diff
+# m1     0.0       0.0
+# m4    -9.0       4.6
+# m2  -111.0      16.5
+# m3  -150.5      19.4
+# m7  -157.7      19.6
+# m6  -173.9      20.8
+# m5 -1337.5      49.3
+# m8 -2153.8      63.9
+# Using model 1
+```
+
+### Figures
+#### Main figures
+```{r main figures}
+# https://mjskay.github.io/tidybayes/articles/tidy-brms.html
+# m1 <- readRDS("output/vbge/m1.rds")
+
+pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
+
+# Plot % difference by age class
+fm_preds <- d %>%
+  data_grid(age = seq_range(age, by = 1),
+            area = c("FM")) %>%
+  mutate(areaC = ifelse(area == "FM", 1, 0),
+         areaW = ifelse(area == "BT", 1, 0)) %>%
+  add_epred_draws(m1, re_formula = NA, seed = 5) %>%
+  ungroup() %>%
+  rename(FM_pred = .epred) %>%
+  dplyr::select(-area, -areaC, -areaW)
+
+bt_preds <- d %>%
+  data_grid(age = seq_range(age, by = 1),
+            area = c("BT")) %>%
+  mutate(areaC = ifelse(area == "FM", 1, 0),
+         areaW = ifelse(area == "BT", 1, 0)) %>%
+  add_epred_draws(m1, re_formula = NA, seed = 5) %>%
+  ungroup() %>%
+  rename(BT_pred = .epred) %>%
+  dplyr::select(-area, -areaC, -areaW)
+
+ratio_df <- left_join(fm_preds, bt_preds) %>% 
+  mutate(heated_ref_ratio = (BT_pred/FM_pred))
+
+size_ratio <- ggplot(ratio_df, aes(factor(age), heated_ref_ratio)) +
+  geom_violin(fill = "grey50", color = NA) + 
+  geom_pointrange(stat = "summary",
+                  fun.min = function(z) { quantile(z,0.25) },
+                  fun.max = function(z) { quantile(z,0.75) },
+                  fun = median, color = "white") +
+  geom_hline(yintercept = 1, linetype = 2, color = "gray50") + 
+  coord_cartesian(ylim = c(0.85, 1.35)) +
+  labs(y = "Heated / Reference size-at-age", x = "Age [yrs]") +
+  theme(text = element_text(size = 12), # 12 for word doc
+        legend.position = c(0.1, 0.9), 
+        legend.spacing.y = unit(0, 'cm'),
+        legend.key.size = unit(0, "cm"),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 10)) +
+  NULL
+
+
+size_ratio
+ggsave("figures/supp/size_growth_ratios.png", width = 6.5, height = 6.5, dpi = 600)
+
+# Plot main predictions
+pvbge <- d %>% 
+  data_grid(age = seq_range(age, by = 1),
+            area = c("FM", "BT")) %>%
+  mutate(areaC = ifelse(area == "FM", 1, 0),
+         areaW = ifelse(area == "BT", 1, 0)) %>% 
+  add_predicted_draws(m1, re_formula = NA) %>%
+  ggplot(aes(x = factor(age), y = length_cm, color = area, fill = area)) +
+  stat_lineribbon(aes(y = exp(.prediction)), .width = c(.5, 0.9), alpha = 0.2, size = 0.8) +
+  geom_jitter(data = d, alpha = 0.1, width = 0.3, height = 0, size = 0.8) +
+  stat_lineribbon(aes(y = exp(.prediction)), .width = 0, alpha = 0.8, size = 0.8) +
+  guides(fill = "none",
+         color = guide_legend(override.aes = list(linetype = 0, fill = NA,
+                                                  size = 3, shape = 16, alpha = 0.5))) +
+  scale_fill_manual(values = pal, labels = c("Heated", "Reference")) +
+  scale_color_manual(values = pal, labels = c("Heated", "Reference")) +
+  labs(y = "Length [cm]", x = "Age [yrs]", fill = "Area", colour = "Area") +
+  annotate("text", 8, 10, label = paste("n=", nrow(d), sep = ""), size = 3) +
+  theme(text = element_text(size = 12), # 12 for word doc
+        legend.position = c(0.1, 0.9), 
+        legend.spacing.y = unit(0, 'cm'),
+        legend.key.size = unit(0, "cm"),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 10))
+
+# Plotting mcmc_dens and use patchwork to plot them together. Note I add the vertical
+# lines manually simply by extracting the fixed effects
+m1_fe <- fixef(m1, probs = c(0.1, 0.9)) %>% as.data.frame()
+posterior <- as.array(m1)
+
+# http://mjskay.github.io/tidybayes/articles/tidy-brms.html
+post_K <- 
+  m1 %>%
+  gather_draws(b_KC_Intercept, b_KW_Intercept) %>%
+  ggplot(aes(x = .value, fill = .variable, color = .variable)) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
+  # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
+  #        color = "none") +
+  guides(fill = "none", color = "none") + 
+  scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
+  scale_color_manual(values = rev(pal)) +
+  labs(x = expression(paste(italic(K), " [", yr^-1,"]", sep = "")), fill = "") +
+  theme(legend.position = c(0.9, 0.9),
+        legend.key.size = unit(0.2, "cm"),
+        legend.background = element_blank())
+
+post_L_inf <- 
+  m1 %>%
+  gather_draws(b_LinfC_Intercept, b_LinfW_Intercept) %>%
+  ggplot(aes(x = .value, fill = .variable, color = .variable)) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
+  # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
+  #        color = "none") +
+  guides(fill = "none", color = "none") + 
+  scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
+  scale_color_manual(values = rev(pal)) +
+  labs(x = expression(paste(italic(L[infinity]), " [cm]")), fill = "") +
+  theme(legend.position = c(0.9, 0.9),
+        legend.key.size = unit(0.2, "cm"),
+        legend.background = element_blank())
+
+# Plot distribution of differences
+# http://mjskay.github.io/tidybayes/articles/tidy-brms.html
+diff <- m1 %>%
+  spread_draws(b_LinfC_Intercept, b_LinfW_Intercept, b_KC_Intercept, b_KW_Intercept) %>%
+  mutate(diff_K = b_KW_Intercept - b_KC_Intercept,
+         diff_L_inf = b_LinfW_Intercept - b_LinfC_Intercept) 
+
+prop_diff_K <- summarise(diff, Proportion_of_the_difference_below_0 = sum(diff_K < 0) / length(diff_K))
+prop_diff_L_inf <- summarise(diff, Proportion_of_the_difference_below_0 = sum(diff_L_inf < 0) / length(diff_L_inf))
+
+# https://bookdown.org/content/3890/interactions.html
+post_diff_K <- ggplot(diff, aes(x = diff_K, fill = stat(x > 0))) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = "none") + 
+  scale_fill_manual(values = c("grey10", "grey70")) +
+  annotate("text", 0.11, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_K, 2), sep = "")) +
+  labs(x = expression(~italic(K)[heat]~-~italic(K)[ref])) +
+  theme(legend.position = c(0.2, 0.7),
+        legend.key.size = unit(0.2, "cm"),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 10),
+        legend.background = element_blank())
+
+post_diff_L_inf <- ggplot(diff, aes(x = diff_L_inf, fill = stat(x > 0))) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = "none") + 
+  scale_fill_manual(values = c("grey10", "grey70")) +
+  annotate("text", 22, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_L_inf, 2), sep = "")) +
+  labs(x = expression(paste(~italic(L[infinity])[heat]~-~italic(L[infinity])[ref]))) +
+  theme(legend.position = c(0.2, 0.7),
+        legend.key.size = unit(0.2, "cm"),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 10),
+        legend.background = element_blank())
+
+pvbge / ((post_K/post_diff_K) | (post_L_inf/post_diff_L_inf)) +
+  plot_layout(heights = c(1.2, 1)) +
+  plot_annotation(tag_levels = 'A')
+
+ggsave("figures/vbge_pred_K_Linf_post.png", width = 6.5, height = 6.5, dpi = 600)
+```
+
+#### Supporting figures
+Random year effects
+```{r random year effects}
+# http://mjskay.github.io/tidybayes/articles/tidy-brms.html
+
+pal2 <- alpha(pal, alpha = 0.8)
+
+# Plot predictions by cohort:
+p2 <- d %>%
+  data_grid(age = seq_range(age, by = 1),
+            birth_year = seq_range(birth_year, by = 1),
+            area = c("FM", "BT")) %>%
+  mutate(areaC = ifelse(area == "FM", 1, 0),
+         areaW = ifelse(area == "BT", 1, 0)) %>%
+  add_predicted_draws(m1) %>%
+  ggplot(aes(x = factor(age), y = length_cm, color = area, fill = area)) +
+  stat_lineribbon(aes(y = exp(.prediction)), .width = .95, alpha = 0.4, size = 0.5) +
+  stat_lineribbon(aes(y = exp(.prediction)), .width = 0, alpha = 0.8, size = 0.5) +
+  geom_jitter(data = d, alpha = 0.2, width = 0.3,
+              height = 0, size = 0.6) +
+  facet_wrap(~birth_year) +
+  scale_fill_manual(values = pal2, labels = c("Warm", "Cold")) +
+  scale_color_manual(values = pal2, labels = c("Warm", "Cold")) +
+  labs(y = "Length [cm]", x = "Age [yrs]", fill = "Area", colour = "Area") +
+  NULL
+
+pWord2 <- p2 + theme(text = element_text(size = 12),
+                     legend.position = c(0.7, 0.1),
+                     legend.title = element_text(size = 12),
+                     legend.text = element_text(size = 12))
+
+ggsave("figures/supp/vbge_pred_cohort.png", width = 6.5, height = 6.5, dpi = 600)
+
+# Cohort-specific VBGE parameters
+get_variables(m1)
+
+# Warm K
+pKW <- m1 %>%
+  spread_draws(b_KW_Intercept,
+               r_birth_year__KW[birth_year, Intercept]) %>%
+  mutate(year_mean_KW = b_KW_Intercept + r_birth_year__KW) %>% # The random effects are offsets
+  ggplot(aes(y = factor(birth_year), x = year_mean_KW)) +
+  stat_halfeye(fill = pal2[1], alpha = 0.8, point_interval = median_qi, .width = 0.95) + 
+  labs(y = "Cohort", x = expression(paste(italic(K), " [", yr^-1,"]", sep = ""))) + 
+  ggtitle("Warm")
+
+# Cold K
+pKC <- m1 %>%
+  spread_draws(b_KC_Intercept,
+               r_birth_year__KC[birth_year, Intercept]) %>%
+  mutate(year_mean_KC = b_KC_Intercept + r_birth_year__KC) %>% # The random effects are offsets
+  ggplot(aes(y = factor(birth_year), x = year_mean_KC)) +
+  stat_halfeye(fill = pal2[2], alpha = 0.8, point_interval = median_qi, .width = 0.95) + 
+  labs(y = "Cohort", x = expression(paste(italic(K), " [", yr^-1,"]", sep = ""))) + 
+  ggtitle("Cold")
+
+pKW + pKC
+
+ggsave("figures/supp/vbge_random_K.png", width = 6.5, height = 6.5, dpi = 600)
+
+# Warm L_inf
+pLinfW <- m1 %>%
+  spread_draws(b_LinfW_Intercept,
+               r_birth_year__LinfW[birth_year, Intercept]) %>%
+  mutate(year_mean_LinfW = b_LinfW_Intercept + r_birth_year__LinfW) %>% # The random effects are offsets
+  ggplot(aes(y = factor(birth_year), x = year_mean_LinfW)) +
+  stat_halfeye(fill = pal2[1], alpha = 0.8, point_interval = median_qi, .width = 0.95) + 
+  labs(y = "Cohort", x = expression(paste(italic(L[infinity]), " [cm]"))) + 
+  coord_cartesian(xlim = c(26, 100)) +
+  ggtitle("Warm")
+
+# Cold L_inf
+pLinfC <- m1 %>%
+  spread_draws(b_LinfC_Intercept,
+               r_birth_year__LinfC[birth_year, Intercept]) %>%
+  mutate(year_mean_LinfC = b_LinfC_Intercept + r_birth_year__LinfC) %>% # The random effects are offsets
+  ggplot(aes(y = factor(birth_year), x = year_mean_LinfC)) +
+  stat_halfeye(fill = pal2[2], alpha = 0.8, point_interval = median_qi, .width = 0.95) + 
+  labs(y = "Cohort", x = expression(paste(italic(L[infinity]), " [cm]"))) + 
+  coord_cartesian(xlim = c(26, 100)) +
+  ggtitle("Cold")
+
+pLinfW + pLinfC
+
+ggsave("figures/supp/vbge_random_Linf.png", width = 6.5, height = 6.5, dpi = 600)
+```
+
+Prior vs posterior
+```{r prior vs posterior}
+# https://discourse.mc-stan.org/t/presenting-influence-of-different-priors/23393
+# Refit model and sample prior or load below (m1_w_prior)
+# prior <-
+#   prior(normal(-0.5, 1), nlpar = "t0C") +
+#   prior(normal(-0.5, 1), nlpar = "t0W") +
+#   prior(normal(0.2, 0.1), nlpar = "KC") +
+#   prior(normal(0.2, 0.1), nlpar = "KW") +
+#   prior(normal(45, 20), nlpar = "LinfC") +
+#   prior(normal(45, 20), nlpar = "LinfW")
+# 
+# m1_w_prior <-
+#   brm(
+#     bf(log(length_cm) ~ areaW*log(LinfW*(1-exp(-KW*(age-t0W)))) + areaC*log(LinfC*(1-exp(-KC*(age-t0C)))),
+#        t0C ~ 1,
+#        t0W ~ 1,
+#        KC ~ 1 + (1|birth_year),    # parameter varying by birth_year
+#        KW ~ 1 + (1|birth_year),    # parameter varying by birth_year
+#        LinfC ~ 1 + (1|birth_year), # parameter varying by birth_year
+#        LinfW ~ 1 + (1|birth_year), # parameter varying by birth_year
+#        nl = TRUE),
+#     data = d,
+#     family = student(), prior = prior, sample_prior = "yes", seed = 9,
+#     iter = 4000, thin = 1, cores = 3, chains = 3, inits = inits_3_chain,
+#     control = list(max_treedepth = 13, adapt_delta = 0.99))
+
+# saveRDS(m1_w_prior, "output/vbge/m1_w_prior.rds")
+# m1_w_prior <- readRDS("output/vbge/m1_w_prior.rds")
+
+post <- m1_w_prior %>%
+  posterior_samples() %>%
+  clean_names() %>% 
+  dplyr::select(b_linf_w_intercept, b_linf_c_intercept, b_kw_intercept, b_kc_intercept, b_t0w_intercept, b_t0c_intercept, 
+                prior_b_linf_w, prior_b_linf_c, prior_b_kw, prior_b_kc, prior_b_t0w, prior_b_t0c)
+
+post_long <- post %>% pivot_longer(cols = c(1:12), names_to = "Parameter", values_to = "value")
+
+# parameter Linf
+prior_post_linf <- post_long %>%
+  filter(Parameter %in% c("b_linf_w_intercept", "b_linf_c_intercept", "prior_b_linf_w", "prior_b_linf_c")) %>% 
+  ggplot(., aes(value, fill = Parameter, color = Parameter, alpha = Parameter))+
+  geom_density() +
+  labs(x = expression(italic(L[infinity]))) +
+  coord_cartesian(expand = 0) +
+  scale_alpha_manual(values = c(0.4, 0.4, 0.1, 0.1)) +
+  scale_color_manual(values = c(NA, NA, "gray50", "gray50")) +
+  scale_fill_manual(values = c(pal[2], pal[1], NA, NA),
+                    labels = c(expression(paste(~italic(L[infinity])[ref])), 
+                               expression(paste(~italic(L[infinity])[heat])),
+                               expression(paste(Prior~italic(L[infinity])[heat])),
+                               expression(paste(Prior~italic(L[infinity])[ref])))) + 
+  guides(color = "none", alpha = "none",
+         fill = guide_legend(override.aes = list(color = c(NA, NA, "gray50", "gray50"),
+                                                 alpha = c(0.4, 0.4, 0.1, 0.1)))) +
+  theme(legend.position = c(0.2, 0.8),
+        legend.text.align = 0)
+
+# parameter K
+prior_post_K <- post_long %>%
+  filter(Parameter %in% c("b_kw_intercept", "b_kc_intercept", "prior_b_kw", "prior_b_kc")) %>% 
+  ggplot(., aes(value, fill = Parameter, color = Parameter, alpha = Parameter))+
+  geom_density() +
+  labs(x = expression(italic(K))) +
+  coord_cartesian(expand = 0) +
+  scale_alpha_manual(values = c(0.4, 0.4, 0.1, 0.1)) +
+  scale_color_manual(values = c(NA, NA, "gray50", "gray50")) +
+  scale_fill_manual(values = c(pal[2], pal[1], NA, NA),
+                    labels = c(expression(italic(K)[ref]),
+                               expression(italic(K)[heat]), 
+                               expression(paste(Prior~italic(K)[heat])),
+                               expression(paste(Prior~italic(K)[ref])))) + 
+  guides(color = "none", alpha = "none",
+         fill = guide_legend(override.aes = list(color = c(NA, NA, "gray50", "gray50"),
+                                                 alpha = c(0.4, 0.4, 0.1, 0.1)))) +
+  theme(legend.position = c(0.2, 0.8),
+        legend.text.align = 0)
+
+# parameter t0
+prior_post_t0 <- post_long %>%
+  filter(Parameter %in% c("b_t0w_intercept", "b_t0c_intercept", "prior_b_t0w", "prior_b_t0c")) %>% 
+  ggplot(., aes(value, fill = Parameter, color = Parameter, alpha = Parameter))+
+  geom_density() +
+  labs(x = expression(italic(t[0]))) +
+  coord_cartesian(expand = 0) +
+  scale_alpha_manual(values = c(0.4, 0.4, 0.1, 0.1)) +
+  scale_color_manual(values = c(NA, NA, "gray50", "gray50")) +
+  scale_fill_manual(values = c(pal[2], pal[1], NA, NA),
+                    labels = c(expression(italic(t[0])[ref]),
+                               expression(italic(t[0])[heat]), 
+                               expression(paste(Prior~italic(t[0])[ref])),
+                               expression(paste(Prior~italic(t[0])[heat])))) + 
+  guides(color = "none", alpha = "none",
+         fill = guide_legend(override.aes = list(color = c(NA, NA, "gray50", "gray50"),
+                                                 alpha = c(0.4, 0.4, 0.1, 0.1)))) +
+  theme(legend.position = c(0.2, 0.8),
+        legend.text.align = 0)
+
+prior_post_linf / prior_post_K / prior_post_t0 +
+  plot_annotation(tag_levels = "A")
+
+ggsave("figures/supp/vbge_prior_post.png", width = 6.5, height = 8.5, dpi = 600)
+```
+
+Model diagnostics & fit
+```{r model diagnostics & fit}
+pal_diag <- rev(brewer.pal(n = 3, name = "Dark2"))
+
+# Chain convergence
+posterior <- as.array(m1)
+dimnames(posterior)
+
+d1 <- mcmc_trace(posterior,
+                 pars = c("b_t0C_Intercept", "b_t0W_Intercept", "b_KC_Intercept", 
+                          "b_KW_Intercept", "b_LinfC_Intercept", "b_LinfW_Intercept",
+                          "sd_birth_year__KC_Intercept", "sd_birth_year__KW_Intercept",
+                          "sd_birth_year__LinfC_Intercept", "sd_birth_year__LinfW_Intercept",
+                          "sigma", "nu"),
+                 facet_args = list(ncol = 3, strip.position = "left")) + 
+  theme(text = element_text(size = 12),
+        strip.text = element_text(size = 4),
+        legend.position = "top") + 
+  scale_color_manual(values = alpha(pal_diag, alpha = 0.8))
+
+# Resid vs fitted
+d2 <- d %>%
+  add_residual_draws(m1) %>%
+  ggplot(aes(x = .row, y = .residual)) +
+  stat_pointinterval(alpha = 0.5, size = 0.7) + 
+  theme(text = element_text(size = 12))
+
+# qq-plot
+# d3 <- d %>%
+#   add_residual_draws(m1) %>%
+#   median_qi() %>%
+#   ggplot(aes(sample = .residual)) +
+#   geom_qq_line() +
+#   geom_qq(alpha = 0.8) +
+#   theme(text = element_text(size = 12))
+
+# Student QQ plot
+# https://stackoverflow.com/questions/42493048/computation-failed-for-stat-summary-what-must-be-a-character-string-or-a-func
+# https://www.seascapemodels.org/rstats/2017/10/06/qqplot-non-normal-glm.html
+
+summary(m1)$spec_pars # Extract "fixed" effects from m1 for plotting the equation 
+nu <- summary(m1)$spec_pars[2, 1]
+nu
+
+# "Base" version
+# t <- d_dummy %>%
+#  add_residual_draws(m3s) %>%
+#  median_qi()
+# resids <- t$.residual
+# n <- nrow(d_dummy)
+# qqplot(qt(ppoints(n), df = nu), resids,
+# xlab = "Theoretical quantile", ylab = "residuals")
+# qqline(resids, lty = 2)
+
+# Below ggplot version (check they are the same!)
+#?geom_qq_line. Does not take a df argument but dparams, a bit strange
+# https://ggplot2.tidyverse.org/reference/geom_qq.html
+d3 <- d %>%
+  add_residual_draws(m1) %>%
+  median_qi() %>%
+  ggplot(aes(sample = .residual)) +
+  geom_qq_line(distribution = qt, dparams = nu) +
+  geom_qq(alpha = 0.8, distribution = qt, dparams = nu) +
+  theme(text = element_text(size = 12))
+
+# Posterior predictive
+d4 <- pp_check(m1) + 
+  theme(text = element_text(size = 12),
+        legend.position = c(0.15, 0.95),
+        legend.background = element_rect(fill = NA)) + 
+  scale_color_manual(values = rev(pal_diag)) +
+  labs(color = "")
+
+d1 / (d2 / (d3 + d4)) + 
+  plot_annotation(tag_levels = 'A')
+
+ggsave("figures/supp/vbge_diag_fit.png", width = 6.5, height = 10.5, dpi = 600)
+```
