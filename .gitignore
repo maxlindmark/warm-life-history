@@ -50,7 +50,9 @@ meetings/
 # test scripts and old scripts
 R/analysis/size_spectra_sensitivity.R
 R/analysis/size_spectra.R
+analysis/extract_equation_from_model_object.Rmd
+analysis/extract_equation.Rmd
 
 # Old drafts
-R/drafts/old/
+drafts/old/
 
