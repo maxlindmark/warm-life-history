@@ -37,6 +37,7 @@ library(tidybayes)
 library(RColorBrewer)
 library(patchwork)
 library(modelr)
+library(janitor)
 
 # Print package versions for versions
 sessionInfo() 
@@ -119,7 +120,7 @@ ggsave("figures/supp/vbge_prior_pred_check.png", width = 6.5, height = 6.5, dpi 
 ```
 
 M1: All parameters specific by area
-```{r M1: All parameters specific by area}
+```{r M1: All parameters specific by area, cache = TRUE}
 # These inits where found after initial exploration
 load("output/vbge_3_chain_inits.RData")
 inits_3_chain
@@ -162,7 +163,7 @@ plot(m1)
 ```
 
 M2: L_inf common parameter, t_0 & K specific
-```{r M2: L_inf common parameter, t_0 & K specific}
+```{r M2: L_inf common parameter, t_0 & K specific, cache = TRUE}
 prior2 <-
   prior(normal(-0.5, 1), nlpar = "t0C") +
   prior(normal(-0.5, 1), nlpar = "t0W") +
@@ -197,7 +198,7 @@ plot(m2)
 ```
 
 M3: K common parameter, t_0 & L_inf specific
-```{r M3: K common parameter, t_0 & L_inf specific}
+```{r M3: K common parameter, t_0 & L_inf specific, cache = TRUE}
 prior3 <-
   prior(normal(-0.5, 1), nlpar = "t0C") +
   prior(normal(-0.5, 1), nlpar = "t0W") +
@@ -232,7 +233,7 @@ plot(m3)
 ```
 
 M4: t_0 common parameter, K & L_inf specific
-```{r M4: t_0 common parameter, K & L_inf specific}
+```{r M4: t_0 common parameter, K & L_inf specific, cache = TRUE}
 prior4 <-
   prior(normal(-0.5, 1), nlpar = "t0") +
   prior(normal(0.2, 0.1), nlpar = "KC") +
@@ -267,7 +268,7 @@ plot(m4)
 ```
 
 M5: L_inf & K common parameter, t_0 specific
-```{r M5: L_inf & K common parameter, t_0 specific}
+```{r M5: L_inf & K common parameter, t_0 specific, cache = TRUE}
 prior5 <-
   prior(normal(-0.5, 1), nlpar = "t0C") +
   prior(normal(-0.5, 1), nlpar = "t0W") +
@@ -300,7 +301,7 @@ plot(m5)
 ```
 
 M6: L_inf & t_0 common parameter, K specific
-```{r M6: L_inf & t_0 common parameter, K specific}
+```{r M6: L_inf & t_0 common parameter, K specific, cache = TRUE}
 prior6 <-
   prior(normal(-0.5, 1), nlpar = "t0") +
   prior(normal(0.2, 0.1), nlpar = "KC") +
@@ -333,7 +334,7 @@ plot(m6)
 ```
 
 M7: K & t_0 common parameter, L_inf specific
-```{r M7: K & t_0 common parameter, L_inf specific}
+```{r M7: K & t_0 common parameter, L_inf specific, cache = TRUE}
 prior7 <-
   prior(normal(-0.5, 1), nlpar = "t0") +
   prior(normal(0.2, 0.1), nlpar = "K") +
@@ -366,7 +367,7 @@ plot(m7)
 ```
 
 M8: All parameters common
-```{r M8: All parameters common}
+```{r M8: All parameters common, cache = TRUE}
 prior8 <-
   prior(normal(-0.5, 1), nlpar = "t0") +
   prior(normal(0.2, 0.1), nlpar = "K") +
@@ -673,31 +674,31 @@ ggsave("figures/supp/vbge_random_Linf.png", width = 6.5, height = 6.5, dpi = 600
 ```
 
 Prior vs posterior
-```{r prior vs posterior}
+```{r prior vs posterior, cache=TRUE}
 # https://discourse.mc-stan.org/t/presenting-influence-of-different-priors/23393
 # Refit model and sample prior or load below (m1_w_prior)
-# prior <-
-#   prior(normal(-0.5, 1), nlpar = "t0C") +
-#   prior(normal(-0.5, 1), nlpar = "t0W") +
-#   prior(normal(0.2, 0.1), nlpar = "KC") +
-#   prior(normal(0.2, 0.1), nlpar = "KW") +
-#   prior(normal(45, 20), nlpar = "LinfC") +
-#   prior(normal(45, 20), nlpar = "LinfW")
-# 
-# m1_w_prior <-
-#   brm(
-#     bf(log(length_cm) ~ areaW*log(LinfW*(1-exp(-KW*(age-t0W)))) + areaC*log(LinfC*(1-exp(-KC*(age-t0C)))),
-#        t0C ~ 1,
-#        t0W ~ 1,
-#        KC ~ 1 + (1|birth_year),    # parameter varying by birth_year
-#        KW ~ 1 + (1|birth_year),    # parameter varying by birth_year
-#        LinfC ~ 1 + (1|birth_year), # parameter varying by birth_year
-#        LinfW ~ 1 + (1|birth_year), # parameter varying by birth_year
-#        nl = TRUE),
-#     data = d,
-#     family = student(), prior = prior, sample_prior = "yes", seed = 9,
-#     iter = 4000, thin = 1, cores = 3, chains = 3, inits = inits_3_chain,
-#     control = list(max_treedepth = 13, adapt_delta = 0.99))
+prior <-
+  prior(normal(-0.5, 1), nlpar = "t0C") +
+  prior(normal(-0.5, 1), nlpar = "t0W") +
+  prior(normal(0.2, 0.1), nlpar = "KC") +
+  prior(normal(0.2, 0.1), nlpar = "KW") +
+  prior(normal(45, 20), nlpar = "LinfC") +
+  prior(normal(45, 20), nlpar = "LinfW")
+
+m1_w_prior <-
+  brm(
+    bf(log(length_cm) ~ areaW*log(LinfW*(1-exp(-KW*(age-t0W)))) + areaC*log(LinfC*(1-exp(-KC*(age-t0C)))),
+       t0C ~ 1,
+       t0W ~ 1,
+       KC ~ 1 + (1|birth_year),    # parameter varying by birth_year
+       KW ~ 1 + (1|birth_year),    # parameter varying by birth_year
+       LinfC ~ 1 + (1|birth_year), # parameter varying by birth_year
+       LinfW ~ 1 + (1|birth_year), # parameter varying by birth_year
+       nl = TRUE),
+    data = d,
+    family = student(), prior = prior, sample_prior = "yes", seed = 9,
+    iter = 4000, thin = 1, cores = 3, chains = 3, inits = inits_3_chain,
+    control = list(max_treedepth = 13, adapt_delta = 0.99))
 
 # saveRDS(m1_w_prior, "output/vbge/m1_w_prior.rds")
 # m1_w_prior <- readRDS("output/vbge/m1_w_prior.rds")

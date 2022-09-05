@@ -62,7 +62,7 @@ https://cran.r-project.org/web/packages/insight/vignettes/insight.html
 See the insight package for verifying model structure
 
 M0: Prior predictive check: Warm+Cold merged
-```{r M0: Prior predictive check: Warm+Cold merged}
+```{r M0: Prior predictive check: Warm+Cold merged, cache = TRUE}
 prior0 <-
   prior(normal(500, 100), nlpar = "alpha") +
   prior(normal(-1.2, 0.3), nlpar = "theta")
@@ -85,7 +85,7 @@ ggsave("figures/supp/growth_prior_pred_check.png", width = 6.5, height = 6.5, dp
 ```
 
 M1: All parameters area-specific
-```{r M1: All parameters area-specific}
+```{r M1: All parameters area-specific, cache = TRUE}
 prior <-
   prior(normal(500, 100), nlpar = "alphaW") +
   prior(normal(500, 100), nlpar = "alphaC") +
@@ -117,7 +117,7 @@ prior_summary(m1)
 ```
 
 M2: Common theta parameter
-```{r M2: Common theta parameter}
+```{r M2: Common theta parameter, cache = TRUE}
 prior2 <-
   prior(normal(500, 100), nlpar = "alphaW") +
   prior(normal(500, 100), nlpar = "alphaC") +
@@ -196,7 +196,7 @@ pscatter <- d %>%
                                                   shape = 16, alpha = 0.5))) +
   labs(y = expression(paste("Growth [%", yr^-1, "]")),
        x = "Length [cm]", fill = "Area", colour = "Area") +
-  annotate("text", 35, 42, label = paste("n=", nrow(dfm), sep = ""), size = 3.5) +
+  annotate("text", 35, 42, label = paste("n=", nrow(d), sep = ""), size = 3.5) +
   annotate("text", 35, 36, size = 3.5, color = pal[1],
            label = expression(italic("y=433.45×"~length^-1.18))) + # Cold
   annotate("text", 35, 30, size = 3.5, color = pal[2],
