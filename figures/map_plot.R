@@ -76,4 +76,4 @@ p2
 
 p1 + inset_element(p2, left = 0.45, bottom = 0.45, right = 1, top = 1)
 
-ggsave("figures/map.png", width = 6.5, height = 6.5, dpi = 600)
+ggsave("figures/map.pdf", width = 16, height = 18, unit = "cm")
