@@ -5,6 +5,7 @@ date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_document:
     df_print: paged
+    code_folding: hide
   pdf_document: default
 editor_options: 
   chunk_output_type: console
@@ -16,8 +17,6 @@ editor_options:
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  fig.width = 12,
-  fig.asp = 0.618,
   fig.align ='center'
 )
 ```
@@ -41,12 +40,16 @@ library(RColorBrewer)
 library(modelr)
 library(viridis)
 library(ggridges)
+library(grDevices)
 
 # Print package versions for versions
 sessionInfo() 
 
 # For parallel processing
 options(mc.cores = parallel::detectCores()) 
+
+# Load cache
+# qwraps2::lazyload_cache_dir(path = "R/analysis/04_size_spectra_fit_cache/html")
 ```
 
 ### Read data
@@ -54,7 +57,7 @@ options(mc.cores = parallel::detectCores())
 d <- read.csv("data/for_fitting/size_spectrum_dat.csv")
 
 # This is for the size_df below (1 row 1 ind, for calculating mean size later)
-df <- read.csv("data/cleaned/catch_BT_FM_1987-2003.csv")
+df <- read.csv("data/cleaned/catch_BT_FM_1987-2003.csv") %>% mutate(area = Area)
 
 # How many nets in total? (For scaling with effort later)
 df %>%
@@ -93,31 +96,6 @@ p1/p2
 
 size_df <- df
 colnames(size_df)
-```
-
-```{r test cloudplots}
-ggplot(size_df, aes(x = Area, y = log(length_group), fill = Area, color = Area)) + 
-  
-  geom_boxplot(
-    width = .15, 
-    outlier.shape = NA, 
-    fill = NA
-  ) +
-  ## add justified jitter from the {gghalves} package
-  gghalves::geom_half_point(
-    ## draw jitter on the left
-    #side = "l", 
-    ## control range of jitter
-    range_scale = .4, 
-    ## add some transparency
-    alpha = .1
-  ) +
-  guides(color = "none") +
-  coord_cartesian(xlim = c(1.2, NA), clip = "off")
-
-hist(log(size_df$length_group))
-
-summary(lm(length_group ~ Area, data = size_df))
 ```
 
 ### Fit models
@@ -280,7 +258,10 @@ ISD_bin_plot(data.year = data.year.bt,
 ```
 
 ### Produce figures
+
 ```{r produce figures}
+pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
+
 # https://htmlpreview.github.io/?https://raw.githubusercontent.com/andrew-edwards/sizeSpectra/master/doc/MEPS_IBTS_MLEbins.html
 
 FM_spectra = dplyr::tbl_df(FM_spectra_df)
@@ -292,8 +273,6 @@ BT_spectra = dplyr::mutate(BT_spectra, stdErr = (abs(confMin-b) + abs(confMax-b)
 BT_spectra = dplyr::mutate(BT_spectra, area = "BT")
 
 spectra <- rbind(BT_spectra, FM_spectra)
-
-pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 
 # Now make a ggplot-version to put in the paper as an example
 # First put in in a dataframe instead of adding them as lines in the base plot
@@ -351,15 +330,15 @@ pmle <- ggplot(data_year2) +
             aes(xmin = wmin, xmax = wmax, ymin = lowCount, ymax = highCount, fill = area),
             alpha = 0.2) +
   geom_line(aes(x.PLB, y.PLB, color = area_plot), size = 1.3, alpha = 0.8) +
-  geom_line(aes(x.PLB, y.PLB.confMin, color = area_plot), linetype = 2, alpha = 0.8) +
-  geom_line(aes(x.PLB, y.PLB.confMax, color = area_plot), linetype = 2, alpha = 0.8) +
+  geom_line(aes(x.PLB, y.PLB.confMin, color = area_plot), linetype = 3, alpha = 0.8) +
+  geom_line(aes(x.PLB, y.PLB.confMax, color = area_plot), linetype = 3, alpha = 0.8) +
   scale_color_manual(values = pal, name = "Area") +
   scale_fill_manual(values = rev(pal)) + 
   scale_x_log10() +
   scale_y_log10() +
   guides(fill = "none") + 
-  coord_cartesian(ylim = c(0.1, 1000)) +
-  labs(x = "Body mass, x [g]", y = "Number of values ≥ x") +
+  coord_cartesian(ylim = c(0.01, 1000)) +
+  labs(x = "Body mass, x [g]", y = "No. individuals \u2265 x") +
   theme(legend.position = c(0.8, 0.9)) +
   guides(color = guide_legend(override.aes = list(linetype = 1, size = 2, alpha = 0.3, color = pal))) +
   theme(text = element_text(size = 12), 
@@ -368,7 +347,6 @@ pmle <- ggplot(data_year2) +
         legend.key.size = unit(0, "cm"),
         legend.title = element_text(size = 10),
         legend.text = element_text(size = 8))
-
 pmle
 
 # Now plot the CI's
@@ -381,7 +359,7 @@ est_plot <- ggplot(spec_tot, aes(Area, b, color = Area)) +
   scale_color_manual(values = pal) +
   guides(color = "none") +
   labs(y = expression(paste("Size-spectrum exponent ", italic((gamma))))) +
-  geom_errorbar(aes(x = Area, ymin = confMin, ymax = confMax), width = 0.05, size = 0.75)
+  geom_errorbar(aes(x = Area, ymin = confMin, ymax = confMax), width = 0, size = 0.75)
 
 phist <- 
   size_df %>%
@@ -397,7 +375,12 @@ phist <-
   theme(text = element_text(size = 12))
 
 # Combine plots
-pmle / (est_plot | phist) + plot_annotation(tag_levels = "A") #+ plot_layout(widths = c(5, 1, 1))
+#pmle / (est_plot | phist) + plot_annotation(tag_levels = "A") #+ plot_layout(widths = c(5, 1, 1))
 
-ggsave("figures/size_spec.png", width = 6.5, height = 6.5, dpi = 600)
+# This is beacuse ggsave is producing an erorr when I save to pdf when using larger or equal-sign
+grDevices::cairo_pdf("figures/size_spec.pdf", width = 7.87402, height = 7.87402)
+
+pmle / (est_plot | phist) + plot_annotation(tag_levels = "A")
+
+dev.off()
 ```

@@ -1,0 +1,356 @@
+---
+title: "Fit mean size model"
+author: "Max Lindmark"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    df_print: paged
+    code_folding: hide
+  pdf_document: default
+editor_options: 
+  chunk_output_type: console
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include = FALSE, cache=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.align ='center'
+)
+```
+
+# Fit mean size model
+
+```{r libraries and settings, message=FALSE}
+# Load libraries (install first if needed)
+library(tidyverse); theme_set(theme_classic(base_size = 12))
+library(tidylog)
+library(RColorBrewer)
+library(patchwork)
+library(sizeSpectra)
+library(brms)
+library(nlstools)
+library(bayesplot)
+library(tidylog)
+library(tidybayes)
+library(RColorBrewer)
+library(modelr)
+library(viridis)
+library(ggridges)
+library(grDevices)
+
+# Print package versions for versions
+sessionInfo() 
+
+# For parallel processing
+options(mc.cores = parallel::detectCores()) 
+
+# Load cache
+# qwraps2::lazyload_cache_dir(path = "R/analysis/05_mean_size_fit_cache/html")
+```
+
+### Read data
+
+```{r read data}
+df_mean_size <- read.csv("data/cleaned/catch_BT_FM_1987-2003.csv") %>% mutate(area = Area)
+
+df_mean_age <- read.csv("data/cleaned/aged_catch_BT_FM_1987-2003.csv") %>% mutate(area = Area)
+```
+
+### Fit mean size model
+
+```{r fit size model, cache = TRUE}
+ggplot(df_mean_size, aes(log(length_group), fill = area)) + 
+  geom_histogram() + 
+  facet_wrap(~area)
+
+# Fit brms model
+m0 <- brm(
+  length_group ~ 0 + area + (1 | year),
+  family = lognormal(),
+  data = df_mean_size,
+  iter = 1,
+  cores = 1,
+  chains = 1,
+  seed = 9)
+
+prior_summary(m0)
+
+m1 <- brm(
+  length_group ~ 0 + area + (1 | year),
+  family = lognormal(),
+  data = df_mean_size,
+  iter = 4000,
+  cores = 3,
+  chains = 3,
+  seed = 9)
+
+summary(m1)
+plot(m1)
+prior_summary(m1)
+```
+
+### Fit mean age model
+
+```{r fit age model, cache = TRUE}
+ggplot(df_mean_age, aes(age, fill = area)) + 
+  geom_histogram() + 
+  facet_wrap(~area)
+
+m2 <- brm(
+  age ~ 0 + area + (1 | year),
+  family = lognormal(),
+  data = df_mean_age,
+  iter = 4000,
+  cores = 3,
+  chains = 3,
+  seed = 9)
+
+summary(m2)
+plot(m2)
+conditional_effects(m2)
+```
+
+```{r}
+library(lme4)
+
+m <- lmer(
+  length_group ~ 0 + area + (0 + area | year), 
+  data = df_mean_size)
+
+equatiomatic::extract_eq(m)
+
+
+equatiomatic::extract_eq(m)
+
+summary(m)
+```
+
+$$
+\begin{aligned}
+  \operatorname{length\_group}_{i}  &\sim N \left(\beta_{1j[i]}(\operatorname{area}_{\operatorname{BT}}) + \beta_{2j[i]}(\operatorname{area}_{\operatorname{FM}}), \sigma^2 \right) \\    
+\left(
+  \begin{array}{c} 
+    \begin{aligned}
+      &\beta_{1j} \\
+      &\beta_{2j}
+    \end{aligned}
+  \end{array}
+\right)
+  &\sim N \left(
+\left(
+  \begin{array}{c} 
+    \begin{aligned}
+      &\mu_{\beta_{1j}} \\
+      &\mu_{\beta_{2j}}
+    \end{aligned}
+  \end{array}
+\right)
+, 
+\left(
+  \begin{array}{cc}
+     \sigma^2_{\beta_{1j}} & \rho_{\beta_{1j}\beta_{2j}} \\ 
+     \rho_{\beta_{2j}\beta_{1j}} & \sigma^2_{\beta_{2j}}
+  \end{array}
+\right)
+ \right)
+    \text{, for year j = 1,} \dots \text{,J}
+\end{aligned}
+$$
+
+```{r explore model fit}
+plot(m1)
+summary(m1)
+conditional_effects(m1)
+
+pp_check(m1)
+
+pp_check(m1, type = "hist")
+```
+
+```{r}
+pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
+
+get_variables(m1)
+
+df_mean_size <- df_mean_size %>% mutate(area2 = ifelse(area == "BT", "Heated", "Reference"))
+df_mean_age <- df_mean_age %>% mutate(area2 = ifelse(area == "BT", "Heated", "Reference"))
+
+size_data <- ggplot(df_mean_size, aes(log(length_group), fill = area2)) + 
+  geom_histogram(alpha = 0.8) + 
+  scale_fill_manual(values = pal, name = "Area") +
+  facet_wrap(~area2) +
+  guides(fill = "none") +
+  labs(x = "log(Length group)", y = "Count") +
+  theme(legend.position = c(0.1, 0.9),
+        legend.text = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.key.size = unit(0.2, "cm"),
+        legend.background = element_blank())
+
+age_data <- ggplot(df_mean_age, aes(age, fill = area2)) + 
+  geom_histogram(alpha = 0.8) + 
+  scale_fill_manual(values = pal, name = "Area") +
+  facet_wrap(~area2) +
+  guides(fill = "none") +
+  labs(x = "Age", y = "Count") +
+  theme(legend.position = c(0.1, 0.9),
+        legend.text = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.key.size = unit(0.2, "cm"),
+        legend.background = element_blank())
+
+size_data / age_data
+
+ggsave("figures/supp/mean_size.pdf", width = 20, height = 20, unit = "cm")
+
+# Main plot
+diff_size <- m1 %>%
+  spread_draws(b_areaBT, b_areaFM) %>%
+  mutate(diff = exp(b_areaBT) - exp(b_areaFM))
+
+diff_age <- m2 %>%
+  spread_draws(b_areaBT, b_areaFM) %>%
+  mutate(diff = exp(b_areaBT) - exp(b_areaFM))
+
+post_diff_size <- diff_size %>%
+  ggplot(aes(x = diff, fill = stat(x > 0))) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = "none") + 
+  scale_fill_manual(values = c("grey10", "grey70")) +
+  geom_vline(xintercept = 0, linetype = 2, size = 0.5, color = "grey10") +
+  guides(fill = "none") +
+  labs(x = "Heat-Ref size difference") +
+  theme(legend.text = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.key.size = unit(0.2, "cm"),
+        legend.background = element_blank())
+
+post_diff_age <- diff_age %>%
+  ggplot(aes(x = diff, fill = stat(x > 0))) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = "none") + 
+  scale_fill_manual(values = c("grey10", "grey70")) +
+  geom_vline(xintercept = 0, linetype = 2, size = 0.5, color = "grey10") +
+  guides(fill = "none") +
+  labs(x = "Heat-Ref age difference") +
+  theme(legend.text = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.key.size = unit(0.2, "cm"),
+        legend.background = element_blank())
+
+post_diff_age
+
+mean_size <- df_mean_size %>%
+  data_grid(area = c("BT", "FM")) %>%
+  add_predicted_draws(m1, re_formula = NA) %>%
+  mutate(area_plot = ifelse(area == "BT", "Heated", "Reference")) %>% 
+  ggplot(aes(area_plot, y = .prediction, fill = area_plot)) +
+  geom_violin(alpha = 0.8, width = 0.5, color = NA) +
+  geom_boxplot(width = 0.1, fill = "white", color = "grey30", size = 0.4) +
+  scale_fill_manual(values = pal) +
+  scale_color_manual(values = pal) +
+  scale_y_continuous(trans = "log10") +
+  labs(color = "Area", fill = "Area", x = "", y = "Body size [cm]") +
+  guides(fill = "none") +
+  theme(text = element_text(size = 12), 
+        legend.position = c(0.9, 0.9),
+        legend.spacing.y = unit(0, 'cm'),
+        legend.key.size = unit(0, "cm"),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8))
+
+mean_age <- df_mean_age %>%
+  data_grid(area = c("BT", "FM")) %>%
+  add_predicted_draws(m2, re_formula = NA) %>%
+  mutate(area_plot = ifelse(area == "BT", "Heated", "Reference")) %>% 
+  ggplot(aes(area_plot, y = .prediction, fill = area_plot)) +
+  geom_violin(alpha = 0.8, width = 0.5, color = NA) +
+  geom_boxplot(width = 0.1, fill = "white", color = "grey30", size = 0.4) +
+  scale_fill_manual(values = pal) +
+  scale_color_manual(values = pal) +
+  scale_y_continuous(trans = "log10") +
+  labs(color = "Area", fill = "Area", x = "", y = "Age [yrs]") +
+  guides(fill = "none") +
+  theme(text = element_text(size = 12), 
+        legend.position = c(0.9, 0.9),
+        legend.spacing.y = unit(0, 'cm'),
+        legend.key.size = unit(0, "cm"),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8))
+
+(mean_size | post_diff_size) / (mean_age | post_diff_age) + plot_annotation(tag_levels = "A") & theme_classic(base_size = 12)
+
+ggsave("figures/mean_age_size.pdf", width = 20, height = 20, unit = "cm")
+
+## test
+# mean_size2 <- df_mean_size %>%
+#   data_grid(area = c("BT", "FM")) %>%
+#   add_linpred_draws(m2, re_formula = NA) %>%
+#   ggplot(aes(x = .prediction, fill = area, color = area)) +
+#   stat_halfeye(alpha = 0.5, size = 5, .width = c(0.9)) +
+#   guides(color = "none", fill = "none") +
+#   scale_fill_manual(values = pal, labels = c("Cold", "Warm")) +
+#   scale_color_manual(values = pal) +
+#   labs(x = expression(italic("\u03B1")), fill = "") +
+#   theme(legend.position = c(0.9, 0.9),
+#         legend.key.size = unit(0.2, "cm"),
+#         legend.background = element_blank())
+# 
+# mean_size2 | post_diff_size
+```
+
+```{r model diagnostics & fit}
+pal_diag <- rev(brewer.pal(n = 3, name = "Dark2"))
+
+# Chain convergence
+posterior_1 <- as.array(m1)
+posterior_2 <- as.array(m2)
+dimnames(posterior_1)
+dimnames(posterior_2)
+
+d1 <- mcmc_trace(posterior_1,
+                 pars = c("b_areaBT", "b_areaFM", "sd_year__Intercept", "sigma"),
+                 facet_args = list(ncol = 2, strip.position = "left")) + 
+  theme(text = element_text(size = 12),
+        strip.text = element_text(size = 6),
+        legend.position = "top") + 
+  scale_color_manual(values = alpha(pal_diag, alpha = 0.8))
+
+d2 <- mcmc_trace(posterior_2,
+                 pars = c("b_areaBT", "b_areaFM", "sd_year__Intercept", "sigma"),
+                 facet_args = list(ncol = 2, strip.position = "left")) + 
+  theme(text = element_text(size = 12),
+        strip.text = element_text(size = 6),
+        legend.position = "top") + 
+  scale_color_manual(values = alpha(pal_diag, alpha = 0.8))
+
+
+# Posterior predictive
+d1b <- pp_check(m1, adjust = 5) + 
+  theme(text = element_text(size = 12),
+        legend.position = c(0.85, 0.95),
+        legend.background = element_rect(fill = NA)) + 
+  scale_color_manual(values = rev(pal_diag)) +
+  labs(color = "", x = "Length [cm]")
+
+d2b <- pp_check(m2, adjust = 5) + 
+  theme(text = element_text(size = 12),
+        legend.position = c(0.85, 0.95),
+        legend.background = element_rect(fill = NA)) + 
+  scale_color_manual(values = rev(pal_diag)) +
+  labs(color = "", x = "Age [yrs]")
+ 
+# y <- df_mean_size$length_group
+# yrep <- posterior_predict(m1, draws = 500)
+# 
+# d3 <- ppc_stat(y, yrep, stat = "mean") + 
+#   labs(x = "Length [cm]")
+
+(d1 / d2 / (d1b | d2b)) + 
+  plot_annotation(tag_levels = 'A')
+
+ggsave("figures/supp/mean_size_diag_fit.pdf", width = 20, height = 20, unit = "cm")
+```

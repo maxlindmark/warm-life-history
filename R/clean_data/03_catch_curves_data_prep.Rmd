@@ -42,7 +42,7 @@ sessionInfo()
 
 ### Read and add final touches to data
 ```{r read and prep data for analysis}
-df <- read.csv("data/aged_catch_BT_FM_1987-2003.csv")
+df <- read.csv("data/cleaned/aged_catch_BT_FM_1987-2003.csv")
 
 head(df)
 
@@ -70,6 +70,7 @@ head(df)
 
 # Currently the data is in format 1 row, 1 ind. We want a column that has the CPUE
 # by length class.
+
 
 # How many nets in total per area and year? (For scaling with effort later)
 df <- df %>% group_by(Area, year) %>%
@@ -172,12 +173,17 @@ df4 %>%
   distinct(n)
 
 # Plot the log cpue as function of age to find the ages that correspond to the descending limb:
-ggplot(df4, aes(factor(age), log(cpue_numbers), color = factor(year))) + 
-  geom_point() +
-  facet_wrap(~ area) +
-  scale_color_viridis(discrete = TRUE) + 
-  coord_cartesian(expand = 0) + 
-  theme(aspect.ratio = 1)
+df4 %>% 
+  mutate(area2 = ifelse(area == "BT", "Heated", "Ref")) %>% 
+  ggplot(aes(factor(age), log(cpue_numbers), color = factor(year))) + 
+  geom_jitter(height = 0, width = 0.2, alpha = 0.8) +
+  facet_wrap(~ area2) +
+  scale_color_viridis(discrete = TRUE, name = "Year") + 
+  labs(y = "Catch per unit effort", x = "Age") +   
+  theme(aspect.ratio = 1, 
+        legend.position = "bottom")
+
+ggsave("figures/supp/descending_limb.pdf", width = 20, height = 20, unit = "cm")  
 
 # Let's use age 3 and older
 ggplot(df4, aes(factor(age), log(cpue_numbers), color = factor(year))) + 
@@ -299,7 +305,8 @@ df %>%
   guides(fill = "none") +
   theme(text = element_text(size = 12))
 
-ggsave("figures/supp/age_prop_diff.png", width = 3.5, height = 6.5, dpi = 600)
+#ggsave("figures/supp/age_prop_diff.png", width = 3.5, height = 6.5, dpi = 600)
+#ggsave("figures/supp/age_prop_diff.pdf", width = 3.5, height = 6.5, dpi = 600)
 ```
 
 ### Save data

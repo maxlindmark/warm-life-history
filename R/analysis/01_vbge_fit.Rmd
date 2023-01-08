@@ -5,6 +5,7 @@ date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_document:
     df_print: paged
+    code_folding: hide
   pdf_document: default
 editor_options: 
   chunk_output_type: console
@@ -44,6 +45,9 @@ sessionInfo()
 
 # For parallel processing
 options(mc.cores = parallel::detectCores()) 
+
+# Load cache
+# qwraps2::lazyload_cache_dir(path = "R/analysis/01_vbge_fit_cache/html")
 ```
 
 ### Read data
@@ -116,7 +120,8 @@ pp <- conditional_effects(M0fmbt, method = "posterior_predict")
 plot(pp, plot = FALSE)[[1]] +
   labs(x = "Age [yrs]", y = "log(length [cm])") 
 
-ggsave("figures/supp/vbge_prior_pred_check.png", width = 6.5, height = 6.5, dpi = 600)
+#ggsave("figures/supp/vbge_prior_pred_check.png", width = 6.5, height = 6.5, dpi = 600)
+ggsave("figures/supp/vbge_prior_pred_check.pdf", height = 20, width = 20, units = "cm")
 ```
 
 M1: All parameters specific by area
@@ -418,16 +423,6 @@ loo_m8 <- loo(m8)
 
 # Compare models
 loo_compare(loo_m1, loo_m2, loo_m3, loo_m4, loo_m5, loo_m6, loo_m7, loo_m8)
-# elpd_diff se_diff
-# m1     0.0       0.0
-# m4    -9.0       4.6
-# m2  -111.0      16.5
-# m3  -150.5      19.4
-# m7  -157.7      19.6
-# m6  -173.9      20.8
-# m5 -1337.5      49.3
-# m8 -2153.8      63.9
-# Using model 1
 ```
 
 ### Figures
@@ -437,51 +432,6 @@ loo_compare(loo_m1, loo_m2, loo_m3, loo_m4, loo_m5, loo_m6, loo_m7, loo_m8)
 # m1 <- readRDS("output/vbge/m1.rds")
 
 pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
-
-# Plot % difference by age class
-fm_preds <- d %>%
-  data_grid(age = seq_range(age, by = 1),
-            area = c("FM")) %>%
-  mutate(areaC = ifelse(area == "FM", 1, 0),
-         areaW = ifelse(area == "BT", 1, 0)) %>%
-  add_epred_draws(m1, re_formula = NA, seed = 5) %>%
-  ungroup() %>%
-  rename(FM_pred = .epred) %>%
-  dplyr::select(-area, -areaC, -areaW)
-
-bt_preds <- d %>%
-  data_grid(age = seq_range(age, by = 1),
-            area = c("BT")) %>%
-  mutate(areaC = ifelse(area == "FM", 1, 0),
-         areaW = ifelse(area == "BT", 1, 0)) %>%
-  add_epred_draws(m1, re_formula = NA, seed = 5) %>%
-  ungroup() %>%
-  rename(BT_pred = .epred) %>%
-  dplyr::select(-area, -areaC, -areaW)
-
-ratio_df <- left_join(fm_preds, bt_preds) %>% 
-  mutate(heated_ref_ratio = (BT_pred/FM_pred))
-
-size_ratio <- ggplot(ratio_df, aes(factor(age), heated_ref_ratio)) +
-  geom_violin(fill = "grey50", color = NA) + 
-  geom_pointrange(stat = "summary",
-                  fun.min = function(z) { quantile(z,0.25) },
-                  fun.max = function(z) { quantile(z,0.75) },
-                  fun = median, color = "white") +
-  geom_hline(yintercept = 1, linetype = 2, color = "gray50") + 
-  coord_cartesian(ylim = c(0.85, 1.35)) +
-  labs(y = "Heated / Reference size-at-age", x = "Age [yrs]") +
-  theme(text = element_text(size = 12), # 12 for word doc
-        legend.position = c(0.1, 0.9), 
-        legend.spacing.y = unit(0, 'cm'),
-        legend.key.size = unit(0, "cm"),
-        legend.title = element_text(size = 10),
-        legend.text = element_text(size = 10)) +
-  NULL
-
-
-size_ratio
-ggsave("figures/supp/size_growth_ratios.png", width = 6.5, height = 6.5, dpi = 600)
 
 # Plot main predictions
 pvbge <- d %>% 
@@ -519,10 +469,10 @@ post_K <-
   gather_draws(b_KC_Intercept, b_KW_Intercept) %>%
   ggplot(aes(x = .value, fill = .variable, color = .variable)) +
   stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
-  # guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
-  #        color = "none") +
-  guides(fill = "none", color = "none") + 
-  scale_fill_manual(values = rev(pal), labels = c("Cold", "Warm")) +
+  guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)),
+         color = "none") +
+  #guides(fill = "none", color = "none") + 
+  scale_fill_manual(values = rev(pal), labels = c("Ref", "Heat")) +
   scale_color_manual(values = rev(pal)) +
   labs(x = expression(paste(italic(K), " [", yr^-1,"]", sep = "")), fill = "") +
   theme(legend.position = c(0.9, 0.9),
@@ -554,12 +504,15 @@ diff <- m1 %>%
 prop_diff_K <- summarise(diff, Proportion_of_the_difference_below_0 = sum(diff_K < 0) / length(diff_K))
 prop_diff_L_inf <- summarise(diff, Proportion_of_the_difference_below_0 = sum(diff_L_inf < 0) / length(diff_L_inf))
 
+round(prop_diff_K, 2)
+round(prop_diff_L_inf, 2)
+
 # https://bookdown.org/content/3890/interactions.html
 post_diff_K <- ggplot(diff, aes(x = diff_K, fill = stat(x > 0))) +
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = "none") + 
   scale_fill_manual(values = c("grey10", "grey70")) +
-  annotate("text", 0.11, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_K, 2), sep = "")) +
+  #annotate("text", 0.01, 0.95, size = 3, label = paste("Proportion of difference < 0=", round(prop_diff_K, 2), sep = "")) +
   labs(x = expression(~italic(K)[heat]~-~italic(K)[ref])) +
   theme(legend.position = c(0.2, 0.7),
         legend.key.size = unit(0.2, "cm"),
@@ -571,7 +524,7 @@ post_diff_L_inf <- ggplot(diff, aes(x = diff_L_inf, fill = stat(x > 0))) +
   stat_halfeye(alpha = 0.5, size = 5, .width = 0) +
   guides(fill = guide_legend(override.aes = list(size = 1, shape = NA, linetype = 0)), color = "none") + 
   scale_fill_manual(values = c("grey10", "grey70")) +
-  annotate("text", 22, 0.95, size = 3, label = paste("prop. diff<0=", round(prop_diff_L_inf, 2), sep = "")) +
+  #annotate("text", 0, 0.95, size = 3, label = paste("Proportion of difference < 0 =", round(prop_diff_L_inf, 2), sep = "")) +
   labs(x = expression(paste(~italic(L[infinity])[heat]~-~italic(L[infinity])[ref]))) +
   theme(legend.position = c(0.2, 0.7),
         legend.key.size = unit(0.2, "cm"),
@@ -579,11 +532,16 @@ post_diff_L_inf <- ggplot(diff, aes(x = diff_L_inf, fill = stat(x > 0))) +
         legend.title = element_text(size = 10),
         legend.background = element_blank())
 
-pvbge / ((post_K/post_diff_K) | (post_L_inf/post_diff_L_inf)) +
+pvbge
+ggsave("figures/vbge_pred.pdf", width = 20, height = 20, unit = "cm")
+
+#ggsave("figures/vbge_pred_K_Linf_post.png", width = 6.5, height = 6.5, dpi = 600)
+
+((post_K/post_diff_K) | (post_L_inf/post_diff_L_inf)) +
   plot_layout(heights = c(1.2, 1)) +
   plot_annotation(tag_levels = 'A')
 
-ggsave("figures/vbge_pred_K_Linf_post.png", width = 6.5, height = 6.5, dpi = 600)
+ggsave("figures/supp/vbge_K_Linf_post.pdf", width = 20, height = 20, unit = "cm")
 ```
 
 #### Supporting figures
@@ -617,7 +575,9 @@ pWord2 <- p2 + theme(text = element_text(size = 12),
                      legend.title = element_text(size = 12),
                      legend.text = element_text(size = 12))
 
-ggsave("figures/supp/vbge_pred_cohort.png", width = 6.5, height = 6.5, dpi = 600)
+#ggsave("figures/supp/vbge_pred_cohort.png", width = 6.5, height = 6.5, dpi = 600)
+ggsave("figures/supp/vbge_pred_cohort.pdf", width = 20, height = 20, unit = "cm")
+
 
 # Cohort-specific VBGE parameters
 get_variables(m1)
@@ -644,7 +604,8 @@ pKC <- m1 %>%
 
 pKW + pKC
 
-ggsave("figures/supp/vbge_random_K.png", width = 6.5, height = 6.5, dpi = 600)
+#ggsave("figures/supp/vbge_random_K.png", width = 6.5, height = 6.5, dpi = 600)
+ggsave("figures/supp/vbge_random_K.pdf", width = 20, height = 20, unit = "cm")
 
 # Warm L_inf
 pLinfW <- m1 %>%
@@ -670,7 +631,8 @@ pLinfC <- m1 %>%
 
 pLinfW + pLinfC
 
-ggsave("figures/supp/vbge_random_Linf.png", width = 6.5, height = 6.5, dpi = 600)
+#ggsave("figures/supp/vbge_random_Linf.png", width = 6.5, height = 6.5, dpi = 600)
+ggsave("figures/supp/vbge_random_Linf.pdf", width = 20, height = 20, unit = "cm")
 ```
 
 Prior vs posterior
@@ -774,7 +736,55 @@ prior_post_t0 <- post_long %>%
 prior_post_linf / prior_post_K / prior_post_t0 +
   plot_annotation(tag_levels = "A")
 
-ggsave("figures/supp/vbge_prior_post.png", width = 6.5, height = 8.5, dpi = 600)
+ggsave("figures/supp/vbge_prior_post.pdf", width = 20, height = 20, unit = "cm")
+```
+
+Size difference by age class
+```{r}
+# Plot % difference by age class
+fm_preds <- d %>%
+  data_grid(age = seq_range(age, by = 1),
+            area = c("FM")) %>%
+  mutate(areaC = ifelse(area == "FM", 1, 0),
+         areaW = ifelse(area == "BT", 1, 0)) %>%
+  add_epred_draws(m1, re_formula = NA, seed = 5) %>%
+  ungroup() %>%
+  rename(FM_pred = .epred) %>%
+  dplyr::select(-area, -areaC, -areaW)
+
+bt_preds <- d %>%
+  data_grid(age = seq_range(age, by = 1),
+            area = c("BT")) %>%
+  mutate(areaC = ifelse(area == "FM", 1, 0),
+         areaW = ifelse(area == "BT", 1, 0)) %>%
+  add_epred_draws(m1, re_formula = NA, seed = 5) %>%
+  ungroup() %>%
+  rename(BT_pred = .epred) %>%
+  dplyr::select(-area, -areaC, -areaW)
+
+ratio_df <- left_join(fm_preds, bt_preds) %>% 
+  mutate(heated_ref_ratio = (BT_pred/FM_pred))
+
+size_ratio <- ggplot(ratio_df, aes(factor(age), heated_ref_ratio)) +
+  geom_violin(fill = "grey50", color = NA) + 
+  geom_pointrange(stat = "summary",
+                  fun.min = function(z) { quantile(z,0.25) },
+                  fun.max = function(z) { quantile(z,0.75) },
+                  fun = median, color = "white") +
+  geom_hline(yintercept = 1, linetype = 2, color = "gray50") + 
+  coord_cartesian(ylim = c(0.85, 1.35)) +
+  labs(y = "Heated / Reference size-at-age", x = "Age [yrs]") +
+  theme(text = element_text(size = 12), # 12 for word doc
+        legend.position = c(0.1, 0.9), 
+        legend.spacing.y = unit(0, 'cm'),
+        legend.key.size = unit(0, "cm"),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 10)) +
+  NULL
+
+size_ratio
+
+ggsave("figures/supp/vbge_size_age_ratios.pdf", width = 20, height = 20, unit = "cm")
 ```
 
 Model diagnostics & fit
@@ -848,10 +858,245 @@ d4 <- pp_check(m1) +
         legend.position = c(0.15, 0.95),
         legend.background = element_rect(fill = NA)) + 
   scale_color_manual(values = rev(pal_diag)) +
-  labs(color = "")
+  labs(color = "", x = "log(length [cm])")
 
 d1 / (d2 / (d3 + d4)) + 
   plot_annotation(tag_levels = 'A')
 
-ggsave("figures/supp/vbge_diag_fit.png", width = 6.5, height = 10.5, dpi = 600)
+ggsave("figures/supp/vbge_diag_fit.pdf", width = 20, height = 20, unit = "cm")
 ```
+
+#### Supporting analysis
+Here I remove cohorts 95-97, since they are a bit extreme and we are unsure this reflects a true "jump" in L_inf.
+
+M1: All parameters specific by area
+```{r M1_supp: All parameters specific by area and remove cohorts 95+, cache = TRUE}
+# These inits where found after initial exploration
+
+d_supp <- d %>% filter(birth_year < 1995)
+
+start_time <- Sys.time()
+m1_supp <- 
+  brm(
+    bf(log(length_cm) ~ areaW*log(LinfW*(1-exp(-KW*(age-t0W)))) + areaC*log(LinfC*(1-exp(-KC*(age-t0C)))),
+       t0C ~ 1,
+       t0W ~ 1,
+       KC ~ 1 + (1|birth_year),    # parameter varying by birth_year
+       KW ~ 1 + (1|birth_year),    # parameter varying by birth_year
+       LinfC ~ 1 + (1|birth_year), # parameter varying by birth_year
+       LinfW ~ 1 + (1|birth_year), # parameter varying by birth_year
+       nl = TRUE),
+    data = d_supp,
+    family = student(), prior = prior, seed = 9, 
+    iter = 4000, thin = 1, cores = 3, chains = 3, inits = inits_3_chain,
+    control = list(max_treedepth = 13, adapt_delta = 0.99))
+end_time <- Sys.time()
+end_time - start_time
+# Time difference of 4.624257 hours
+
+summary(m1)
+summary(m1_supp)
+plot(m1_supp)
+
+# Save model object to not have to rerun it...
+#saveRDS(m1_supp, "output/vbge/m1_supp.rds")
+# m1_supp <- readRDS("output/vbge/m1_supp.rds")
+
+# > prior_summary(m1_supp)
+```
+
+```{r test difference in estimate K and L and to}
+# http://mjskay.github.io/tidybayes/articles/tidy-brms.html
+# Plot % difference by age class
+fm_preds_full <- d %>%
+  data_grid(age = seq_range(age, by = 1),
+            area = c("FM")) %>%
+  mutate(areaC = ifelse(area == "FM", 1, 0),
+         areaW = ifelse(area == "BT", 1, 0)) %>%
+  add_epred_draws(m1, re_formula = NA, seed = 5) %>%
+  ungroup() %>%
+  rename(FM_pred = .epred) %>%
+  dplyr::select(-area, -areaC, -areaW)
+
+fm_preds_supp <- d %>%
+  data_grid(age = seq_range(age, by = 1),
+            area = c("FM")) %>%
+  mutate(areaC = ifelse(area == "FM", 1, 0),
+         areaW = ifelse(area == "BT", 1, 0)) %>%
+  add_epred_draws(m1_supp, re_formula = NA, seed = 5) %>%
+  ungroup() %>%
+  rename(FM_pred = .epred) %>%
+  dplyr::select(-area, -areaC, -areaW)
+
+bt_preds_full <- d %>%
+  data_grid(age = seq_range(age, by = 1),
+            area = c("BT")) %>%
+  mutate(areaC = ifelse(area == "FM", 1, 0),
+         areaW = ifelse(area == "BT", 1, 0)) %>%
+  add_epred_draws(m1, re_formula = NA, seed = 5) %>%
+  ungroup() %>%
+  rename(BT_pred = .epred) %>%
+  dplyr::select(-area, -areaC, -areaW)
+
+bt_preds_supp <- d %>%
+  data_grid(age = seq_range(age, by = 1),
+            area = c("BT")) %>%
+  mutate(areaC = ifelse(area == "FM", 1, 0),
+         areaW = ifelse(area == "BT", 1, 0)) %>%
+  add_epred_draws(m1_supp, re_formula = NA, seed = 5) %>%
+  ungroup() %>%
+  rename(BT_pred = .epred) %>%
+  dplyr::select(-area, -areaC, -areaW)
+
+
+ratio_full <- left_join(fm_preds_full, bt_preds_full) %>% 
+  mutate(heated_ref_ratio = (BT_pred/FM_pred),
+         model = "Full")
+
+ratio_supp <- left_join(fm_preds_supp, bt_preds_supp) %>% 
+  mutate(heated_ref_ratio = (BT_pred/FM_pred),
+         model = "Subset")
+
+ratio_df <- bind_rows(ratio_full, ratio_supp)
+
+ratio_df %>% 
+  group_by(age, model) %>% 
+  summarise(mean_ratio = mean(heated_ref_ratio)) %>% 
+  pivot_wider(values_from = mean_ratio, names_from = model)
+
+size_ratio <- ggplot(ratio_df, aes(factor(age), heated_ref_ratio, fill = model, color = model)) +
+  geom_violin(position = position_dodge(width = 0.6), alpha = 0.8, color = NA) + 
+  scale_fill_brewer(palette = "Dark2") +
+  scale_color_brewer(palette = "Dark2") +
+  #geom_pointinterval() + 
+  geom_pointrange(stat = "summary",
+                  fun.min = function(z) { quantile(z,0.25) },
+                  fun.max = function(z) { quantile(z,0.75) },
+                  fun = median, color = "white",
+                  position = position_dodge(width = 0.6),
+                  size = 0.5) +
+  geom_hline(yintercept = 1, linetype = 2, color = "gray50") + 
+  #coord_cartesian(ylim = c(0.85, 1.35)) +
+  labs(y = "Heated / Reference size-at-age", x = "Age [yrs]") +
+  guides(fill = "none", color = "none") +
+  theme(text = element_text(size = 12), # 12 for word doc
+        legend.position = c(0.9, 0.9), 
+        legend.spacing.y = unit(0, 'cm'),
+        legend.key.size = unit(0, "cm"),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 10)) +
+  NULL
+
+size_ratio
+
+# Area diff full model
+post_L_inf2 <- m1 %>%
+  gather_draws(b_LinfC_Intercept, b_LinfW_Intercept) %>% 
+  mutate(param = "L_inf",
+         model = "Full") %>% 
+  pivot_wider(names_from = .variable, values_from = .value) %>%
+  mutate(diff = b_LinfW_Intercept - b_LinfC_Intercept) %>% 
+  dplyr::select(diff, model, param)
+
+post_L_inf_sens2 <- m1_supp %>%
+  gather_draws(b_LinfC_Intercept, b_LinfW_Intercept) %>% 
+  mutate(param = "L_inf",
+         model = "Subset") %>% 
+  pivot_wider(names_from = .variable, values_from = .value) %>% 
+  mutate(diff = b_LinfW_Intercept - b_LinfC_Intercept) %>% 
+  dplyr::select(diff, model, param)
+
+post_K2 <- m1 %>%
+  gather_draws(b_KC_Intercept, b_KW_Intercept) %>% 
+  mutate(param = "K",
+         model = "Full") %>% 
+  pivot_wider(names_from = .variable, values_from = .value) %>%
+  mutate(diff = b_KW_Intercept - b_KC_Intercept) %>% 
+  dplyr::select(diff, model, param)
+
+post_K_sens2 <- 
+  m1_supp %>%
+  gather_draws(b_KC_Intercept, b_KW_Intercept) %>% 
+  mutate(param = "K",
+         model = "Subset") %>% 
+  pivot_wider(names_from = .variable, values_from = .value) %>% 
+  mutate(diff = b_KW_Intercept - b_KC_Intercept) %>% 
+  dplyr::select(diff, model, param)
+
+t <- bind_rows(post_L_inf2, post_L_inf_sens2, post_K2, post_K_sens2)
+
+k <- ggplot(filter(t, param == "K"), aes(diff, fill = model, color = model)) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
+  facet_wrap(~param, scales = "free") +
+  guides(color = "none", alpha = "none",
+         fill = guide_legend(override.aes = list(linetype = rep(0, 2), shape = rep(NA, 2)))) +
+  scale_fill_brewer(palette = "Dark2") +
+  scale_color_brewer(palette = "Dark2") +
+  labs(x = "Heated-Reference", y = "density", fill = "Model") +
+  theme(legend.key.size = unit(0.2, "cm"),
+        legend.background = element_blank(), 
+        aspect.ratio = 1)
+
+t_sub <- filter(t, !param == "K") %>% mutate(param = as.factor(param))
+
+levels(t_sub$param) <- c(expression(L[infinity]))
+
+linf <- ggplot(t_sub, aes(diff, fill = model, color = model)) +
+  stat_halfeye(alpha = 0.5, size = 5, .width = c(0.7)) +
+  facet_wrap(~param, scales = "free", labeller = label_parsed) +
+  guides(color = "none", alpha = "none",
+         fill = guide_legend(override.aes = list(linetype = rep(0, 2), shape = rep(NA, 2)))) +
+  scale_fill_brewer(palette = "Dark2") +
+  scale_color_brewer(palette = "Dark2") +
+  labs(x = "Heated-Reference", y = "density", fill = "Model") +
+  theme(legend.key.size = unit(0.2, "cm"),
+        legend.background = element_blank(), 
+        aspect.ratio = 1)
+
+linf
+
+(size_ratio / (k + linf)) + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect") & theme(legend.position = "top")
+
+ggsave("figures/supp/vbge_sensi.pdf", width = 20, height = 20, unit = "cm")
+
+
+# Now compare differences in estiamtes, not differences in differences
+post_L_inf3 <- m1 %>%
+  gather_draws(b_LinfC_Intercept, b_LinfW_Intercept) %>% 
+  mutate(param = "L_inf") %>% 
+  pivot_wider(names_from = .variable, values_from = .value) %>%
+  dplyr::select(b_LinfC_Intercept, b_LinfW_Intercept) %>% 
+  rename(full_b_LinfC_Intercept = b_LinfC_Intercept,
+         full_b_LinfW_Intercept = b_LinfW_Intercept)
+  
+post_L_inf_sens3 <- m1_supp %>%
+  gather_draws(b_LinfC_Intercept, b_LinfW_Intercept) %>% 
+  mutate(param = "L_inf") %>% 
+  pivot_wider(names_from = .variable, values_from = .value) %>%
+  dplyr::select(b_LinfC_Intercept, b_LinfW_Intercept) %>% 
+  rename(sub_b_LinfC_Intercept = b_LinfC_Intercept,
+         sub_b_LinfW_Intercept = b_LinfW_Intercept)
+
+comp <- bind_cols(post_L_inf3, post_L_inf_sens3)
+
+pal <- brewer.pal(n = 3, name = "Dark2")
+
+ggplot(comp) +
+  stat_halfeye(aes(full_b_LinfC_Intercept - sub_b_LinfC_Intercept, fill = "Reference", color = "Reference"),
+               alpha = 0.5, size = 5, .width = c(0.7)) +
+  stat_halfeye(aes(full_b_LinfW_Intercept - sub_b_LinfW_Intercept, fill = "Heated", color = "Heated"),
+               alpha = 0.5, size = 5, .width = c(0.7)) +
+  scale_fill_brewer(palette = "Dark2") +
+  scale_color_brewer(palette = "Dark2") +
+  guides(color = "none", alpha = "none",
+         fill = guide_legend(override.aes = list(linetype = rep(0, 2), shape = rep(NA, 2)))) +
+  labs(x = expression(paste(~italic(L[infinity]))), y = "density", fill = "Model") +
+  theme(legend.key.size = unit(0.2, "cm"),
+        legend.background = element_blank(),
+        aspect.ratio = 1, 
+        legend.position = c(0.9, 0.9)) +
+  NULL
+
+ggsave("figures/supp/vbge_sensi2.pdf", width = 20, height = 20, unit = "cm")
+```
+
