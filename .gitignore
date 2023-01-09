@@ -55,6 +55,8 @@ R/analysis/size_spectra_sensitivity.R
 analysis/extract_equation_from_model_object.Rmd
 analysis/extract_equation.Rmd
 
-# Old drafts
-drafts/old/
+# Drafts
+drafts/
+
+.DS_Store
 
