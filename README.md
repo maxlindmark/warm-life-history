@@ -8,7 +8,7 @@ We fit linear and non-linear hierarchical Bayesian models using the R-package [b
 
 
 ## How to replicate our analyses and navigate this repo
-
+From scratch:
 `data/raw`
 The raw data are available from database KUL for some of the years: https://www.slu.se/institutioner/akvatiska-resurser/databaser/kul/ and the rest is hosted by SLU. Individual data were collated in Huss et al (2019). If you have any questions about these data (e.g., translating column names), please, feel free to reach out to us.
 
@@ -16,7 +16,7 @@ The raw data are available from database KUL for some of the years: https://www.
 Contains merged and cleaned data, see scripts 00_age_length_key.Rmd and 00_process_catch_data.Rmd in `R/clean_data`).
 
 `data/for_fitting`
-Contains data ready to go directly into model fitting scripts (`R/analysis`). These files are created in scripts in `R/clean_data` starting with *01-04* (1 = von Bertalanffy, 2 = growth size scaling, 3 = catch curves, 4 = size-spectra).
+Contains data ready to go directly into model fitting scripts (`R/analysis`). These files are created in scripts in `R/clean_data` starting with 01-04 (1 = von Bertalanffy, 2 = growth size scaling, 3 = catch curves, 4 = size-spectra).
 
 `R/analysis`
 Contains R code for fitting models (using data in `data/for_fitting`), plotting and creating figures.
@@ -24,4 +24,5 @@ Contains R code for fitting models (using data in `data/for_fitting`), plotting 
 `figures`
 Contains all main and supporting figures (`figures/supp`)
 
+You can also download this repo and view knitted html files of all .Rmd scripts, or e.g., start directly from the scripts in `R/analysis` and use the already cleaned data.
 
