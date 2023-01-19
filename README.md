@@ -1,4 +1,5 @@
 # Larger but younger fish when growth compensates for higher mortality in warmed ecosystem
+[![DOI](https://zenodo.org/badge/298284214.svg)](https://zenodo.org/badge/latestdoi/298284214)
 
 [Lindmark, M.](https://maxlindmark.github.io/), Karlsson, M., and [Gårdmark, A](https://internt.slu.se/en/cv-originals/anna-gardmark/). 2023, January 9. Larger but younger fish when growth outpaces mortality in heated ecosystem. bioRxiv. <https://www.biorxiv.org/content/10.1101/2022.04.13.488128v3> (Accessed 18 January 2023).
 
