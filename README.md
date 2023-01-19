@@ -10,7 +10,7 @@ We fit linear and non-linear hierarchical Bayesian models using the R-package [b
 ## How to replicate our analyses and navigate this repo
 From scratch:
 `data/raw`
-The raw data are available from the database KUL for some of the years: https://www.slu.se/institutioner/akvatiska-resurser/databaser/kul/ and the rest is hosted by SLU. Individual data were collated in Huss et al (2019). If you have any questions about these data (e.g., translating column names), please, feel free to reach out to us.
+The raw data are available from the database KUL for some of the years: https://www.slu.se/institutioner/akvatiska-resurser/databaser/kul/ and the rest is hosted by SLU. Note that this data need some work before it is usable. Individual data were collated in Huss et al (2019) (<https://doi.org/10.1111/gcb.14637>). If you have any questions about these data (e.g., translating column names), please, feel free to reach out to us. We suggest, however, that you start directly from the scripts in `R/analysis` and use the already cleaned data. 
 
 `data/cleaned`
 Contains merged and cleaned data, see scripts 00_age_length_key.Rmd and 00_process_catch_data.Rmd in `R/clean_data`).
