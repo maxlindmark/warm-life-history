@@ -79,7 +79,7 @@ length_at_age %>%
   theme_classic()
 
 # Now we need to use the same length categories as in the catch data
-catch_data <- read.csv("data/catch_BT_FM_1987-2003.csv")
+catch_data <- read.csv("data/cleaned/catch_BT_FM_1987-2003.csv")
 
 length_at_age <- length_at_age %>% 
   filter(length > 5.1) %>% # This is the smallest category in the catch data
