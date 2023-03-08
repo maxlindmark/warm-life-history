@@ -1,9 +1,3 @@
----
-editor_options: 
-  markdown: 
-    wrap: 72
----
-
 # Larger but younger fish when growth compensates for higher mortality in warmed ecosystem
 
 [![DOI](https://zenodo.org/badge/298284214.svg)](https://zenodo.org/badge/latestdoi/298284214)
