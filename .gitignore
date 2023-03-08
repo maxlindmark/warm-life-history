@@ -60,7 +60,7 @@ analysis/extract_equation.Rmd
 # Drafts
 /drafts/
 
-/drafts/raw/
-
 .DS_Store
 
+# test script
+growth_activation_energy.Rmd
