@@ -29,7 +29,7 @@ data/AgeLengthKey.pdf
 data/CatchCurve.pdf
 
 # meeting slides
-meetings/
+/meetings/
 
 # OAuth2 token, see https://github.com/hadley/httr/releases/tag/v0.3
 .httr-oauth
@@ -56,9 +56,8 @@ R/analysis/size_spectra_sensitivity.R
 analysis/extract_equation_from_model_object.Rmd
 analysis/extract_equation.Rmd
 
-
 # Drafts
-drafts/
+/drafts/
 
 .DS_Store
 
