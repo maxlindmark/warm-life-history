@@ -36,6 +36,7 @@ data/CatchCurve.pdf
 
 # knitr and R markdown default cache directories
 *_cache/
+*_files/
 /cache/
 
 # Temporary files created by R markdown
