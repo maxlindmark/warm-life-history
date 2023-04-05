@@ -5,7 +5,7 @@ library(broom)
 library(rgdal)
 library(ggmap)
 library(tidyverse)
-library(sf)
+library(sf); sf::sf_use_s2(FALSE) # throws error otherwise
 library(png)
 library(patchwork)
 library(cowplot)
@@ -48,8 +48,12 @@ utm_coords <- LongLatToUTM(df$lon, df$lat, zone = 33)
 df$X <- utm_coords$X
 df$Y <- utm_coords$Y
 
-xmin <- 303379.1; xmax <- 958492.4; xrange <- xmax - xmin
-ymin <- 5983578; ymax <- 6450163; yrange <- ymax - ymin
+xmin <- 185000
+xmax <- 1200000
+xrange <- xmax - xmin
+ymin <- 6010000
+ymax <- 7500000
+yrange <- ymax - ymin
 
 p1 <-
 ggplot(swe_coast_proj) +
@@ -58,10 +62,16 @@ ggplot(swe_coast_proj) +
   annotate("text", label = "Sweden", x = xmin + 0.33*xrange, y = ymin + 1.4*yrange,
            color = "black", size = 6) +
   labs(x = "Longitude", y = "Latitude") +
-  geom_segment(aes(x = xmin + 0.58*xrange, y = ymin + 1.535*yrange,
-                   xend = xmin + 1*xrange, yend = ymin + 1.73*yrange),
+  # geom_segment(aes(x = xmin + 0.58*xrange, y = ymin + 1.535*yrange,
+  #                  xend = xmin + 1*xrange, yend = ymin + 1.73*yrange),
+  #              arrow = arrow(length = unit(0.5, "cm")), color = "red",
+  #              lineend = "butt", linejoin = "bevel", size = 1.5) +
+  geom_segment(aes(x = xmin + 0.485*xrange, y = ymin + 0.45*yrange,
+                   xend = xmin + 0.6*xrange, yend = ymin + 0.55*yrange),
                arrow = arrow(length = unit(0.5, "cm")), color = "red",
                lineend = "butt", linejoin = "bevel", size = 1.5) +
+  xlim(xmin, xmax) +
+  ylim(ymin, ymax) +
   NULL
 
 p1
