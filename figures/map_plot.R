@@ -59,19 +59,19 @@ p1 <-
 ggplot(swe_coast_proj) +
   geom_sf() +
   geom_point(data = df, aes(x = X, y = Y), size = 5, shape = 15, color = "red") +
-  annotate("text", label = "Sweden", x = xmin + 0.33*xrange, y = ymin + 1.4*yrange,
-           color = "black", size = 6) +
   labs(x = "Longitude", y = "Latitude") +
   # geom_segment(aes(x = xmin + 0.58*xrange, y = ymin + 1.535*yrange,
   #                  xend = xmin + 1*xrange, yend = ymin + 1.73*yrange),
   #              arrow = arrow(length = unit(0.5, "cm")), color = "red",
   #              lineend = "butt", linejoin = "bevel", size = 1.5) +
-  geom_segment(aes(x = xmin + 0.485*xrange, y = ymin + 0.45*yrange,
-                   xend = xmin + 0.6*xrange, yend = ymin + 0.55*yrange),
+  geom_segment(aes(x = xmin + 0.48*xrange, y = ymin + 0.465*yrange,
+                   xend = xmin + 0.82*xrange, yend = ymin + 0.65*yrange),
                arrow = arrow(length = unit(0.5, "cm")), color = "red",
                lineend = "butt", linejoin = "bevel", size = 1.5) +
   xlim(xmin, xmax) +
   ylim(ymin, ymax) +
+  annotate("text", label = "Sweden", x = xmin + 0.3*xrange, y = ymin + 0.4*yrange,
+           color = "black", size = 6) +
   NULL
 
 p1
@@ -84,6 +84,6 @@ p2 <- ggdraw() +
 
 p2
 
-p1 + inset_element(p2, left = 0.45, bottom = 0.45, right = 1, top = 1)
+p1 + inset_element(p2, left = 0.5, bottom = 0.605, right = 1, top = 1)
 
 ggsave("figures/map.pdf", width = 16, height = 18, unit = "cm")
