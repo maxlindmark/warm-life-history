@@ -75,6 +75,18 @@ ggplot(swe_coast_proj) +
   NULL
 
 p1
+
+ggplot(swe_coast_proj) +
+  geom_sf() +
+  labs(x = "Longitude", y = "Latitude") +
+  xlim(xmin, xmax) +
+  ylim(ymin, ymax) +
+  annotate("text", label = "Sweden", x = xmin + 0.3*xrange, y = ymin + 0.4*yrange,
+           color = "black", size = 6) +
+  NULL
+
+ggsave("figures/map_bs.pdf", width = 16, height = 18, unit = "cm")
+
   
 ## SMALL map (inset)
 bt <- readPNG("figures/maps/biotest_map.png")
