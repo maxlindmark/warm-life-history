@@ -26,7 +26,7 @@ For areas separately, using Edwards et al's MLEbin method
 
 ```{r libraries and settings, message=FALSE}
 # Load libraries (install first if needed)
-library(tidyverse); theme_set(theme_classic(base_size = 12))
+library(tidyverse)
 library(tidylog)
 library(RColorBrewer)
 library(patchwork)
@@ -260,6 +260,8 @@ ISD_bin_plot(data.year = data.year.bt,
 ### Produce figures
 
 ```{r produce figures}
+theme_set(theme_classic(base_size = 10))
+
 pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 
 # https://htmlpreview.github.io/?https://raw.githubusercontent.com/andrew-edwards/sizeSpectra/master/doc/MEPS_IBTS_MLEbins.html
@@ -377,10 +379,10 @@ phist <-
 # Combine plots
 #pmle / (est_plot | phist) + plot_annotation(tag_levels = "A") #+ plot_layout(widths = c(5, 1, 1))
 
-# This is beacuse ggsave is producing an erorr when I save to pdf when using larger or equal-sign
-grDevices::cairo_pdf("figures/size_spec.pdf", width = 7.87402, height = 7.87402)
+# This is because ggsave is producing an error when I save to pdf when using larger or equal-sign
+grDevices::cairo_pdf("figures/size_spec_v2.pdf", width = 0.7*7.87402, height = 0.7*7.87402)
 
-pmle / (est_plot | phist) + plot_annotation(tag_levels = "A")
+(phist | est_plot) / pmle + plot_annotation(tag_levels = "A")
 
 dev.off()
 ```

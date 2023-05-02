@@ -451,7 +451,8 @@ pvbge <- d %>%
   scale_color_manual(values = pal, labels = c("Heated", "Reference")) +
   labs(y = "Length [cm]", x = "Age [yrs]", fill = "Area", colour = "Area") +
   annotate("text", 8, 10, label = paste("n=", nrow(d), sep = ""), size = 3) +
-  theme(text = element_text(size = 12), # 12 for word doc
+  #theme(text = element_text(size = 12), # 12 for word doc
+  theme(text = element_text(size = 10), # 12 for word doc
         legend.position = c(0.1, 0.9), 
         legend.spacing.y = unit(0, 'cm'),
         legend.key.size = unit(0, "cm"),
@@ -533,7 +534,8 @@ post_diff_L_inf <- ggplot(diff, aes(x = diff_L_inf, fill = stat(x > 0))) +
         legend.background = element_blank())
 
 pvbge
-ggsave("figures/vbge_pred.pdf", width = 20, height = 20, unit = "cm")
+#ggsave("figures/vbge_pred.pdf", width = 20, height = 20, unit = "cm")
+ggsave("figures/vbge_pred2.pdf", width = 15, height = 9, unit = "cm")
 
 #ggsave("figures/vbge_pred_K_Linf_post.png", width = 6.5, height = 6.5, dpi = 600)
 

@@ -28,7 +28,7 @@ Fit catch curves to catch-at-age for both areas with year as random effect
 
 ```{r libraries and settings, message=FALSE}
 # Load libraries (install first if needed)
-library(tidyverse); theme_set(theme_classic(base_size = 12))
+library(tidyverse)
 library(brms)
 library(nlstools)
 library(viridis)
@@ -109,6 +109,8 @@ loo_compare(loo_m0, loo_m1)
 ### Produce figures
 #### Main figures
 ```{r main figures}
+theme_set(theme_classic(base_size = 10))
+
 pal <- rev(brewer.pal(n = 6, name = "Paired")[c(2, 6)])
 
 as.data.frame(fixef(m0)) # Extract "fixed" effects from m0 for plotting the equation 
@@ -136,12 +138,13 @@ pcc <- d %>%
            label = paste("y=4.64-0.62×age; Z=0.62", sep = ""), fontface = "italic") + # Cold
   annotate("text", 2.1, -3.65, size = 2.5, color = pal[1],
            label = paste("y=3.65-0.73×age; Z=0.73", sep = ""), fontface = "italic") + # Warm
-  theme(text = element_text(size = 12), 
+  theme(#text = element_text(size = 12), 
         legend.position = c(0.9, 0.9),
         legend.spacing.y = unit(0, 'cm'),
-        legend.key.size = unit(0, "cm"),
-        legend.title = element_text(size = 10),
-        legend.text = element_text(size = 8))
+        legend.key.size = unit(0, "cm")#,
+        #legend.title = element_text(size = 10),
+        #legend.text = element_text(size = 8)
+        )
 
 pcc
 
@@ -191,20 +194,23 @@ post_diff <- diff %>%
   #annotate("text", 0.14, 0.95, size = 3.5, label = paste("prop. diff<0=", round(prop_diff, 4), sep = "")) +
   labs(x = expression(~italic(Z)[heat]~-~italic(Z)[ref])) +
   theme(legend.position = c(0.2, 0.7),
-        legend.text = element_text(size = 10),
-        legend.title = element_text(size = 10),
+        # legend.text = element_text(size = 10),
+        # legend.title = element_text(size = 10),
         legend.key.size = unit(0.2, "cm"),
         legend.background = element_blank())
 
 pcc / (post_slope | post_diff)  + plot_annotation(tag_levels = 'A')
 
 #ggsave("figures/catch_curve.png", width = 5.5, height = 6.5, dpi = 600)
-ggsave("figures/catch_curve.pdf", width = 20, height = 20, unit = "cm")
+#ggsave("figures/catch_curve.pdf", width = 20, height = 20, unit = "cm")
+ggsave("figures/catch_curve_v2.pdf", width = 15, height = 15, unit = "cm")
 ```
 
 #### Supporting figures
 Random year effects
 ```{r random year effects}
+theme_set(theme_classic(base_size = 12))
+
 # # http://mjskay.github.io/tidybayes/articles/tidy-brms.html
 # get_variables(m0)
 # 
