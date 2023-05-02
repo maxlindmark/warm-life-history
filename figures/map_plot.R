@@ -10,7 +10,7 @@ library(png)
 library(patchwork)
 library(cowplot)
 
-theme_set(theme_light(base_size = 12))
+theme_set(theme_light(base_size = 10))
 
 # Read UTM function
 LongLatToUTM <- function(x, y, zone){
@@ -71,10 +71,22 @@ ggplot(swe_coast_proj) +
   xlim(xmin, xmax) +
   ylim(ymin, ymax) +
   annotate("text", label = "Sweden", x = xmin + 0.3*xrange, y = ymin + 0.4*yrange,
-           color = "black", size = 6) +
+           color = "black", size = 4) +
   NULL
 
 p1
+
+ggplot(swe_coast_proj) +
+  geom_sf() +
+  labs(x = "Longitude", y = "Latitude") +
+  xlim(xmin, xmax) +
+  ylim(ymin, ymax) +
+  annotate("text", label = "Sweden", x = xmin + 0.3*xrange, y = ymin + 0.4*yrange,
+           color = "black", size = 6) +
+  NULL
+
+ggsave("figures/map_bs.pdf", width = 16, height = 18, unit = "cm")
+
   
 ## SMALL map (inset)
 bt <- readPNG("figures/maps/biotest_map.png")
@@ -86,4 +98,4 @@ p2
 
 p1 + inset_element(p2, left = 0.5, bottom = 0.605, right = 1, top = 1)
 
-ggsave("figures/map.pdf", width = 16, height = 18, unit = "cm")
+ggsave("figures/map_v2.pdf", width = 12, height = 14, unit = "cm")
